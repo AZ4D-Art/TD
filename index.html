@@ -367,9 +367,12 @@ function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, tets){
     }
     if(f1&&f2){
       const w=thick*2.0;                            // leg length along each face
+      const L=V3.len(V3.sub(B,A));
+      const ins=Math.min(w*1.5,L*0.3);              // end taper length
+      const A2=V3.add(A,V3.mul(d,ins)), B2=V3.sub(B,V3.mul(d,ins));
       const c1=V3.mul(f1,w), c2=V3.mul(f2,w);
-      const a0=A, a1=V3.add(A,c1), a2=V3.add(A,c2);
-      const b0=B, b1=V3.add(B,c1), b2=V3.add(B,c2);
+      const a0=A2, a1=V3.add(A2,c1), a2=V3.add(A2,c2);
+      const b0=B2, b1=V3.add(B2,c1), b2=V3.add(B2,c2);
       // side 1 (in plane of face ia-ib-rest0)
       let n1=V3.norm(V3.cross(d,f1)); if(V3.dot(n1,f2)>0)n1=V3.mul(n1,-1);
       pushTri(a0,b0,b1,n1,cc); pushTri(a0,b1,a1,n1,cc);
@@ -380,9 +383,10 @@ function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, tets){
       let n3=V3.norm(V3.cross(d,V3.sub(c2,c1)));
       if(V3.dot(n3,V3.add(c1,c2))<0)n3=V3.mul(n3,-1);
       pushTri(a1,b1,b2,n3,cc); pushTri(a1,b2,a2,n3,cc);
-      // caps
-      const dn=V3.mul(d,-1);
-      pushTri(a0,a1,a2,dn,cc); pushTri(b0,b2,b1,d,cc);
+      // tapered ends: section converges to the exact vertex point,
+      // flush sides stay in the face planes, so struts meet at points
+      pushTri(A,a0,a1,n1,cc); pushTri(A,a2,a0,n2,cc); pushTri(A,a1,a2,n3,cc);
+      pushTri(B,b1,b0,n1,cc); pushTri(B,b0,b2,n2,cc); pushTri(B,b2,b1,n3,cc);
     } else {
       // fallback: square section (edges without tetra adjacency)
       let u=Math.abs(d[1])<0.99?V3.norm(V3.cross(d,[0,1,0])):[1,0,0];
