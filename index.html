@@ -6,18 +6,18 @@
 <title>AZ4D — TETRABUILDER</title>
 <style>
   :root{
-    --ink:#ffffff; --dim:rgba(255,255,255,.55); --faint:rgba(255,255,255,.22);
-    --panel:rgba(8,8,8,.82); --line:rgba(255,255,255,.14);
+    --ink:#0a0a0a; --dim:rgba(0,0,0,.55); --faint:rgba(0,0,0,.22);
+    --panel:rgba(250,250,250,.85); --line:rgba(0,0,0,.14);
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{height:100%;overflow:hidden;background:#000;color:var(--ink);
+  html,body{height:100%;overflow:hidden;background:#fff;color:var(--ink);
     font-family:"Plus Jakarta Sans","Helvetica Neue",Arial,sans-serif;font-weight:300}
   canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
-  ::selection{background:#fff;color:#000}
+  ::selection{background:#000;color:#fff}
 
   /* ---------- brand ---------- */
   #brand{position:fixed;top:26px;left:50%;transform:translateX(-50%);text-align:center;
-    pointer-events:none;z-index:5;mix-blend-mode:difference}
+    pointer-events:none;z-index:5}
   #brand h1{font-size:15px;font-weight:300;letter-spacing:.55em;text-indent:.55em}
   #brand p{margin-top:6px;font-size:9px;letter-spacing:.34em;text-indent:.34em;color:var(--dim)}
 
@@ -37,17 +37,17 @@
   input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:18px;background:transparent;cursor:pointer}
   input[type=range]::-webkit-slider-runnable-track{height:1px;background:var(--faint)}
   input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;margin-top:-5px;
-    border-radius:50%;background:#000;border:1px solid var(--ink);transition:transform .25s,background .25s}
+    border-radius:50%;background:#fff;border:1px solid var(--ink);transition:transform .25s,background .25s}
   input[type=range]:hover::-webkit-slider-thumb,input[type=range]:active::-webkit-slider-thumb{background:var(--ink);transform:scale(1.25)}
   input[type=range]::-moz-range-track{height:1px;background:var(--faint)}
-  input[type=range]::-moz-range-thumb{width:11px;height:11px;border-radius:50%;background:#000;border:1px solid var(--ink)}
+  input[type=range]::-moz-range-thumb{width:11px;height:11px;border-radius:50%;background:#fff;border:1px solid var(--ink)}
 
   .seg{display:flex;border:1px solid var(--line)}
   .seg button{flex:1;padding:9px 0;background:none;border:none;color:var(--dim);cursor:pointer;
     font-family:inherit;font-size:8.5px;font-weight:300;letter-spacing:.22em;text-transform:uppercase;
     transition:color .3s,background .3s}
   .seg button+button{border-left:1px solid var(--line)}
-  .seg button.on{background:var(--ink);color:#000}
+  .seg button.on{background:var(--ink);color:#fff}
   .seg button:not(.on):hover{color:var(--ink)}
 
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -56,7 +56,7 @@
     letter-spacing:.26em;text-transform:uppercase;transition:all .35s}
   .btn:hover{border-color:var(--ink);color:var(--ink);letter-spacing:.32em}
   .btn.solid{border-color:var(--ink);color:var(--ink)}
-  .btn.solid:hover{background:var(--ink);color:#000}
+  .btn.solid:hover{background:var(--ink);color:#fff}
 
   .hr{border-top:1px solid var(--line);margin:2px 0}
   .cap{font-size:8px;letter-spacing:.3em;text-transform:uppercase;color:var(--faint)}
@@ -326,7 +326,7 @@ function beamMesh(nodes, edges, thick, colorMode, hueBase, joints){
   }
   function edgeColor(midY){
     const t=(midY-ymin)/span;
-    if(colorMode===0){const g=0.88; return [g,g,g];}
+    if(colorMode===0){const g=0.10; return [g,g,g];}
     if(colorMode===1) return hsl(hueBase+t*300,0.65,0.6);
     return hsl(hueBase+8+t*38,0.85,0.42+t*0.25); // ember
   }
@@ -395,9 +395,9 @@ void main(){
   float dif=max(dot(N,L1),0.0)*0.85+max(dot(N,L2),0.0)*0.35;
   float spec=pow(max(dot(reflect(-L1,N),Vv),0.0),42.0)*0.5;
   float rim=pow(1.0-max(dot(N,Vv),0.0),2.6)*0.55;
-  vec3 c=vC*(0.16+dif)+vec3(spec)+vC*rim;
+  vec3 c=vC*(0.16+dif)+vec3(spec)*0.35+vC*rim;
   float fog=smoothstep(uFar,uFar*0.18,length(uEye-vW));
-  gl_FragColor=vec4(c*fog,1.0);
+  gl_FragColor=vec4(mix(vec3(1.0),c,fog),1.0);
 }`;
 function shader(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
   if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(s);return s;}
@@ -417,7 +417,7 @@ const loc={
 const bufPos=gl.createBuffer(),bufNrm=gl.createBuffer(),bufCol=gl.createBuffer();
 let vertCount=0;
 gl.enable(gl.DEPTH_TEST);
-gl.clearColor(0,0,0,1);
+gl.clearColor(1,1,1,1);
 
 /* ---------------- state ---------------- */
 const S={count:4,twist:0,curl:0,thick:0.05,structure:0,joints:0,
