@@ -103,9 +103,10 @@
     <input type="range" id="count" min="1" max="60" step="1" value="1"></div>
 
   <div class="ctl"><label class="cap" style="margin-bottom:9px">Add tetras</label>
-    <div class="row2" style="grid-template-columns:56px 1fr">
+    <div class="row2" style="grid-template-columns:48px 1fr 1fr">
       <input type="number" id="addN" min="1" max="99" value="1">
       <button class="btn" id="addTet">Add</button>
+      <button class="btn" id="undoTet">Undo</button>
     </div>
     <p class="cap" id="growHint" style="margin-top:8px;line-height:1.6">Click a face to grow from</p></div>
 
@@ -519,6 +520,7 @@ const S={count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,
          colorMode:0,hue:0,spin:1,mutSeed:0,mutAmt:0,wire:0};
 let sculpture=null; // {nodes,edges,tets}
 let plan=[];        // growth history: null = auto step, {tet,slot} = picked face
+let opStack=[];     // sizes of past Add operations (for Undo)
 let selFace=null;   // currently selected face {tet,slot} (render-space tet index)
 let pickFaces=[];   // clickable faces with resolved positions
 
@@ -643,7 +645,7 @@ function bindRange(id,out,key,fmt){
 $("count").addEventListener("input",e=>{
   const v=parseInt(e.target.value); S.count=v;
   plan=Array(Math.max(v-1,0)).fill(null);
-  selFace=null;
+  opStack=[]; selFace=null;
   $("oCount").textContent=v; regenerate();
 });
 // Add button: grow n tetras, starting from the picked face if one is selected
@@ -654,6 +656,17 @@ $("addTet").addEventListener("click",()=>{
     if(i===0&&selFace) plan.push({tet:selFace.tet%bc,slot:selFace.slot});
     else plan.push(null);
   }
+  opStack.push(n);
+  selFace=null;
+  const total=plan.length+1; S.count=total;
+  $("count").value=Math.min(total,60); $("oCount").textContent=total;
+  regenerate();
+});
+// Undo: remove the tetras added by the last Add (or one, as fallback)
+$("undoTet").addEventListener("click",()=>{
+  const n=opStack.length?opStack.pop():(plan.length?1:0);
+  if(!n) return;
+  plan.length=Math.max(0,plan.length-n);
   selFace=null;
   const total=plan.length+1; S.count=total;
   $("count").value=Math.min(total,60); $("oCount").textContent=total;
@@ -680,7 +693,7 @@ $("mutate").addEventListener("click",()=>{
 });
 $("reset").addEventListener("click",()=>{
   Object.assign(S,{count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,colorMode:0,hue:0,mutSeed:0,mutAmt:0,wire:0});
-  plan=[]; selFace=null; $("addN").value=1;
+  plan=[]; opStack=[]; selFace=null; $("addN").value=1;
   $("count").value=1;$("oCount").textContent=1;
   $("twist").value=0;$("oTwist").textContent="0°";
   $("curl").value=0;$("oCurl").textContent="0°";
