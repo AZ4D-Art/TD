@@ -168,6 +168,7 @@
 
   <button class="btn solid" id="savePng">Save Image</button>
   <button class="btn" id="saveObj">Export .OBJ</button>
+  <button class="btn" id="saveFbx">Export .FBX</button>
   <p class="cap" style="line-height:1.9">Drag to orbit<br>Scroll / pinch to zoom</p>
 </aside>
 <button id="tab" title="toggle panel">▾</button>
@@ -708,30 +709,49 @@ $("savePng").addEventListener("click",()=>{
   a.download="az4d-tetra-sculpture.png";
   a.href=canvas.toDataURL("image/png"); a.click();
 });
-$("saveObj").addEventListener("click",()=>{
-  // export beams as boxes, matching TouchDesigner strut export style
-  let out="# AZ4D TetraBuilder export\n";
-  let vi=1;
-  const t=S.thick/2;
-  for(const [ia,ib] of sculpture.edges){
-    const A=sculpture.nodes[ia],B=sculpture.nodes[ib];
-    const d=V3.norm(V3.sub(B,A));
-    let u=Math.abs(d[1])<0.99?V3.norm(V3.cross(d,[0,1,0])):[1,0,0];
-    const w=V3.norm(V3.cross(d,u));
-    const cs=[[1,1],[1,-1],[-1,-1],[-1,1]];
-    const pts=[];
-    cs.forEach(([su,sw])=>pts.push(V3.add(A,V3.add(V3.mul(u,su*t),V3.mul(w,sw*t)))));
-    cs.forEach(([su,sw])=>pts.push(V3.add(B,V3.add(V3.mul(u,su*t),V3.mul(w,sw*t)))));
-    pts.forEach(p=>out+="v "+p[0].toFixed(6)+" "+p[1].toFixed(6)+" "+p[2].toFixed(6)+"\n");
-    const q=[[0,1,5,4],[1,2,6,5],[2,3,7,6],[3,0,4,7],[3,2,1,0],[4,5,6,7]];
-    q.forEach(f=>out+="f "+(vi+f[0])+" "+(vi+f[1])+" "+(vi+f[2])+" "+(vi+f[3])+"\n");
-    vi+=8;
-  }
-  const blob=new Blob([out],{type:"text/plain"});
+/* exports use the EXACT solid geometry as rendered
+   (in Wire view the export is the solid equivalent) */
+function exportMesh(){
+  const st=sculpture;
+  const faceList=computeFaces(st.nodes,st.tets);
+  return beamMesh(st.nodes,st.edges,S.thick,S.colorMode,S.hue,S.joints===1,faceList,false,null);
+}
+function download(name,text){
+  const blob=new Blob([text],{type:"text/plain"});
   const a=document.createElement("a");
-  a.download="az4d-tetra-sculpture.obj";
-  a.href=URL.createObjectURL(blob); a.click();
+  a.download=name; a.href=URL.createObjectURL(blob); a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+}
+$("saveObj").addEventListener("click",()=>{
+  const m=exportMesh(), P=m.pos, N=m.nrm, n=P.length/3;
+  let out="# AZ4D TetraBuilder export — exact render geometry\n";
+  for(let i=0;i<n;i++) out+="v "+P[3*i].toFixed(6)+" "+P[3*i+1].toFixed(6)+" "+P[3*i+2].toFixed(6)+"\n";
+  for(let i=0;i<n;i++) out+="vn "+N[3*i].toFixed(4)+" "+N[3*i+1].toFixed(4)+" "+N[3*i+2].toFixed(4)+"\n";
+  for(let i=0;i<n;i+=3) out+="f "+(i+1)+"//"+(i+1)+" "+(i+2)+"//"+(i+2)+" "+(i+3)+"//"+(i+3)+"\n";
+  download("az4d-tetra-sculpture.obj",out);
+});
+$("saveFbx").addEventListener("click",()=>{
+  const m=exportMesh(), P=m.pos, N=m.nrm, n=P.length/3;
+  const verts=[],norms=[],idx=[];
+  for(let i=0;i<n;i++){
+    verts.push(P[3*i].toFixed(6),P[3*i+1].toFixed(6),P[3*i+2].toFixed(6));
+    norms.push(N[3*i].toFixed(4),N[3*i+1].toFixed(4),N[3*i+2].toFixed(4));
+  }
+  for(let i=0;i<n;i+=3) idx.push(i,i+1,-(i+2)-1);   // FBX: last index of polygon is XOR'd with -1
+  const fbx='; FBX 6.1.0 project file\n'+
+'FBXHeaderExtension:  {\n\tFBXHeaderVersion: 1003\n\tFBXVersion: 6100\n\tCreator: "AZ4D TetraBuilder"\n}\n'+
+'Definitions:  {\n\tVersion: 100\n\tCount: 1\n\tObjectType: "Model" {\n\t\tCount: 1\n\t}\n}\n'+
+'Objects:  {\n\tModel: "Model::AZ4D_Tetra", "Mesh" {\n\t\tVersion: 232\n'+
+'\t\tProperties60:  {\n\t\t}\n\t\tMultiLayer: 0\n\t\tMultiTake: 1\n\t\tShading: Y\n\t\tCulling: "CullingOff"\n'+
+'\t\tVertices: '+verts.join(",")+'\n'+
+'\t\tPolygonVertexIndex: '+idx.join(",")+'\n'+
+'\t\tGeometryVersion: 124\n'+
+'\t\tLayerElementNormal: 0 {\n\t\t\tVersion: 101\n\t\t\tName: ""\n'+
+'\t\t\tMappingInformationType: "ByVertice"\n\t\t\tReferenceInformationType: "Direct"\n'+
+'\t\t\tNormals: '+norms.join(",")+'\n\t\t}\n'+
+'\t\tLayer: 0 {\n\t\t\tVersion: 100\n\t\t\tLayerElement:  {\n\t\t\t\tType: "LayerElementNormal"\n\t\t\t\tTypedIndex: 0\n\t\t\t}\n\t\t}\n\t}\n}\n'+
+'Connections:  {\n\tConnect: "OO", "Model::AZ4D_Tetra", "Model::Scene"\n}\n';
+  download("az4d-tetra-sculpture.fbx",fbx);
 });
 $("tab").addEventListener("click",()=>{
   $("panel").classList.toggle("hidden");
