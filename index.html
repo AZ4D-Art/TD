@@ -88,12 +88,11 @@
 
 <div id="brand">
   <h1>AZ4D</h1>
-  <p>TETRABUILDER</p>
 </div>
 
 <aside id="panel">
-  <div class="ctl"><label>Tetras <output id="oCount">18</output></label>
-    <input type="range" id="count" min="1" max="60" step="1" value="18"></div>
+  <div class="ctl"><label>Tetras <output id="oCount">4</output></label>
+    <input type="range" id="count" min="1" max="60" step="1" value="4"></div>
 
   <div class="ctl"><label>Twist <output id="oTwist">0°</output></label>
     <input type="range" id="twist" min="-180" max="180" step="1" value="0"></div>
@@ -421,7 +420,7 @@ gl.enable(gl.DEPTH_TEST);
 gl.clearColor(0,0,0,1);
 
 /* ---------------- state ---------------- */
-const S={count:18,twist:0,curl:0,thick:0.05,structure:0,joints:0,
+const S={count:4,twist:0,curl:0,thick:0.05,structure:0,joints:0,
          colorMode:0,hue:0,spin:1,mutSeed:0,mutAmt:0};
 let sculpture=null; // {nodes,edges}
 
@@ -437,7 +436,7 @@ function regenerate(){
   gl.bindBuffer(gl.ARRAY_BUFFER,bufCol); gl.bufferData(gl.ARRAY_BUFFER,m.col,gl.STATIC_DRAW);
   // fit camera distance to bounding radius (fov 38° vertical)
   let r=0; st.nodes.forEach(p=>r=Math.max(r,V3.len(p)));
-  cam.fit=Math.max(r/Math.tan(19*Math.PI/180)*1.12,3.5);
+  cam.fit=Math.max(r/Math.tan(19*Math.PI/180)*1.38,3.5);
 }
 
 /* ---------------- camera / interaction ---------------- */
@@ -520,8 +519,8 @@ $("mutate").addEventListener("click",()=>{
   S.mutSeed=(Math.random()*1e9)>>>0; S.mutAmt=0.16; regenerate();
 });
 $("reset").addEventListener("click",()=>{
-  Object.assign(S,{count:18,twist:0,curl:0,thick:0.05,structure:0,joints:0,colorMode:0,hue:0,mutSeed:0,mutAmt:0});
-  $("count").value=18;$("oCount").textContent=18;
+  Object.assign(S,{count:4,twist:0,curl:0,thick:0.05,structure:0,joints:0,colorMode:0,hue:0,mutSeed:0,mutAmt:0});
+  $("count").value=4;$("oCount").textContent=4;
   $("twist").value=0;$("oTwist").textContent="0°";
   $("curl").value=0;$("oCurl").textContent="0°";
   $("thick").value=0.05;$("oThick").textContent="0.05";
