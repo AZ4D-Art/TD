@@ -378,7 +378,8 @@ function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, tets, wire){
       const O=f.idx.map(i=>nodes[i]);
       const fc=V3.mul(V3.add(V3.add(O[0],O[1]),O[2]),1/3);
       const cc=edgeColor(fc[1]);
-      let n=V3.norm(V3.cross(V3.sub(O[1],O[0]),V3.sub(O[2],O[0])));
+      const nRaw=V3.norm(V3.cross(V3.sub(O[1],O[0]),V3.sub(O[2],O[0])));
+      let n=nRaw;
       if(V3.dot(n,V3.sub(fc,f.tc))<0)n=V3.mul(n,-1);       // outward from tet
       // inner triangle: every edge offset inward by m (mitred corners)
       const I=[0,1,2].map(k=>{
@@ -389,7 +390,8 @@ function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, tets, wire){
         return V3.add(P,V3.mul(bis,m/sh));
       });
       // frame wider than the face -> opening collapses to a solid panel
-      const collapsed=V3.dot(V3.cross(V3.sub(I[1],I[0]),V3.sub(I[2],I[0])),n)<=0;
+      // (compare against the RAW winding normal, not the flipped one)
+      const collapsed=V3.dot(V3.cross(V3.sub(I[1],I[0]),V3.sub(I[2],I[0])),nRaw)<=0;
       const II=collapsed?[fc,fc,fc]:I;
       if(wire){                                            // …plus the openings
         if(!collapsed){pushLine(II[0],II[1],cc);pushLine(II[1],II[2],cc);pushLine(II[2],II[0],cc);}
