@@ -436,7 +436,7 @@ function regenerate(){
   gl.bindBuffer(gl.ARRAY_BUFFER,bufCol); gl.bufferData(gl.ARRAY_BUFFER,m.col,gl.STATIC_DRAW);
   // fit camera distance to bounding radius (fov 38° vertical)
   let r=0; st.nodes.forEach(p=>r=Math.max(r,V3.len(p)));
-  cam.fit=Math.max(r/Math.tan(19*Math.PI/180)*1.38,3.5);
+  cam.fit=Math.max(r/Math.tan(19*Math.PI/180)*2.76,3.5);
 }
 
 /* ---------------- camera / interaction ---------------- */
@@ -470,7 +470,7 @@ function frame(now){
   const dt=(now-last)/1000; last=now;
   if(S.spin&&!dragging) cam.theta+=dt*0.22;
   // ease dist toward fit on regenerate
-  cam.dist+= (cam.fit-cam.dist)*Math.min(dt*2.2,1)* (Math.abs(cam.fit-cam.dist)>0.01?1:0);
+  /* zoom stays where the user sets it — no auto-return to fit */
   const eye=[
     cam.dist*Math.sin(cam.phi)*Math.cos(cam.theta),
     cam.dist*Math.cos(cam.phi),
