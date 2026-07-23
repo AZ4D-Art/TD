@@ -354,17 +354,10 @@ function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, tets, wire){
   function pushTri(a,b,c,n,cc){
     pos.push(...a,...b,...c); nrm.push(...n,...n,...n); col.push(...cc,...cc,...cc);
   }
-  // wireframe: one GL line per edge, flat ink color
-  if(wire){
-    for(const [ia,ib] of edges){
-      const A=nodes[ia],B=nodes[ib];
-      const cc=edgeColor((A[1]+B[1])/2);
-      pos.push(...A,...B); nrm.push(0,1,0,0,1,0); col.push(...cc,...cc);
-    }
-    return {pos:new Float32Array(pos),nrm:new Float32Array(nrm),col:new Float32Array(col)};
-  }
+  const pushLine=(a,b,cc)=>{pos.push(...a,...b);nrm.push(0,1,0,0,1,0);col.push(...cc,...cc);};
   // triangular-section beam along each edge, faces flush with the
-  // two adjacent tetra faces (apex on the edge line, legs in-plane)
+  // two adjacent tetra faces (apex on the edge line, legs in-plane).
+  // wire mode traces the same wedge geometry as lines instead of solids.
   const perp=(v,d)=>{const t=V3.sub(v,V3.mul(d,V3.dot(v,d)));return t;};
   for(const [ia,ib] of edges){
     const A=nodes[ia],B=nodes[ib];
@@ -372,6 +365,8 @@ function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, tets, wire){
     const mid=V3.mul(V3.add(A,B),0.5);
     const cc=edgeColor((A[1]+B[1])/2);
     const key=Math.min(ia,ib)+"_"+Math.max(ia,ib);
+    // main wireframe line along the true tetra edge
+    if(wire) pushLine(A,B,cc);
     // one flush wedge per adjacent tetra: shared edges get a wedge for
     // EVERY tetra they belong to, so no face is missing its framing
     let built=false;
@@ -390,6 +385,15 @@ function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, tets, wire){
         const c1=V3.mul(f1,w), c2=V3.mul(f2,w);
         const a0=A2, a1=V3.add(A2,c1), a2=V3.add(A2,c2);
         const b0=B2, b1=V3.add(B2,c1), b2=V3.add(B2,c2);
+        if(wire){
+          // trace the wedge: corner rails, end sections, taper edges
+          pushLine(a1,b1,cc); pushLine(a2,b2,cc);          // leg rails
+          pushLine(a0,a1,cc); pushLine(a1,a2,cc); pushLine(a2,a0,cc); // section @A2
+          pushLine(b0,b1,cc); pushLine(b1,b2,cc); pushLine(b2,b0,cc); // section @B2
+          pushLine(A,a1,cc);  pushLine(A,a2,cc);           // taper to point A
+          pushLine(B,b1,cc);  pushLine(B,b2,cc);           // taper to point B
+          built=true; continue;
+        }
         // side 1 (in plane of face ia-ib-rest0)
         let n1=V3.norm(V3.cross(d,f1)); if(V3.dot(n1,f2)>0)n1=V3.mul(n1,-1);
         pushTri(a0,b0,b1,n1,cc); pushTri(a0,b1,a1,n1,cc);
@@ -408,6 +412,7 @@ function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, tets, wire){
       }
     }
     if(!built){
+      if(wire) continue;                       // main line already drawn
       // fallback: square section (edges without tetra adjacency)
       let u=Math.abs(d[1])<0.99?V3.norm(V3.cross(d,[0,1,0])):[1,0,0];
       const wv=V3.norm(V3.cross(d,u));
@@ -427,7 +432,7 @@ function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, tets, wire){
     }
   }
   // joint octahedra
-  if(joints){
+  if(joints&&!wire){
     const r=thick*1.55;
     const oct=[[r,0,0],[-r,0,0],[0,r,0],[0,-r,0],[0,0,r],[0,0,-r]];
     const fcs=[[0,2,4],[2,1,4],[1,3,4],[3,0,4],[2,0,5],[1,2,5],[3,1,5],[0,3,5]];
