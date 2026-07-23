@@ -225,7 +225,7 @@ function buildChain(nTetra, jitterSeed){
       const k=Math.min(t[a],t[b])+"_"+Math.max(t[a],t[b]);
       if(!eset.has(k)){eset.add(k);edges.push([Math.min(t[a],t[b]),Math.max(t[a],t[b])]);}
     }
-  return {nodes,edges,rand};
+  return {nodes,edges,tets,rand};
 }
 
 /* deform: recentre on principal (helix) axis = x of chain growth.
@@ -293,14 +293,16 @@ function orientAndDeform(nodes, twistDeg, curlDeg, mutAmt, rand){
 }
 
 /* mirror modes: 0 single | 1 mirror (y -> -y copy) | 2 star (3 copies rot 120°) */
-function applyStructure(nodes, edges, mode){
-  if(mode===0) return {nodes,edges};
+function applyStructure(nodes, edges, mode, tets){
+  if(mode===0) return {nodes,edges,tets};
   const N=nodes.length;
-  let outN=[...nodes.map(p=>[...p])], outE=[...edges.map(e=>[...e])];
+  let outN=[...nodes.map(p=>[...p])], outE=[...edges.map(e=>[...e])],
+      outT=[...tets.map(t=>[...t])];
   if(mode===1){
     let ymin=1e9; nodes.forEach(p=>ymin=Math.min(ymin,p[1]));
     nodes.forEach(p=>outN.push([p[0],2*ymin-p[1]-0.001,p[2]]));
     edges.forEach(e=>outE.push([e[0]+N,e[1]+N]));
+    tets.forEach(t=>outT.push([t[0]+N,t[1]+N,t[2]+N,t[3]+N]));
   } else {
     for(let k=1;k<3;k++){
       const a=k*2*Math.PI/3;
@@ -308,13 +310,23 @@ function applyStructure(nodes, edges, mode){
         p[0]*Math.cos(a)-p[2]*Math.sin(a), p[1],
         p[0]*Math.sin(a)+p[2]*Math.cos(a)]));
       edges.forEach(e=>outE.push([e[0]+k*N,e[1]+k*N]));
+      tets.forEach(t=>outT.push([t[0]+k*N,t[1]+k*N,t[2]+k*N,t[3]+k*N]));
     }
   }
-  return {nodes:outN,edges:outE};
+  return {nodes:outN,edges:outE,tets:outT};
 }
 
 /* ---------------- mesh building: beams + joint spheres ---------------- */
-function beamMesh(nodes, edges, thick, colorMode, hueBase, joints){
+function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, tets){
+  // map each edge -> first tetra containing it (for face-aligned struts)
+  const tetOf={};
+  if(tets) for(let ti=0;ti<tets.length;ti++){
+    const t=tets[ti];
+    for(let a=0;a<4;a++)for(let b=a+1;b<4;b++){
+      const k=Math.min(t[a],t[b])+"_"+Math.max(t[a],t[b]);
+      if(!(k in tetOf)) tetOf[k]=ti;
+    }
+  }
   const pos=[],nrm=[],col=[];
   let ymin=1e9,ymax=-1e9;
   nodes.forEach(p=>{ymin=Math.min(ymin,p[1]);ymax=Math.max(ymax,p[1]);});
@@ -336,27 +348,59 @@ function beamMesh(nodes, edges, thick, colorMode, hueBase, joints){
   function pushTri(a,b,c,n,cc){
     pos.push(...a,...b,...c); nrm.push(...n,...n,...n); col.push(...cc,...cc,...cc);
   }
-  // square-section beam along each edge
+  // triangular-section beam along each edge, faces flush with the
+  // two adjacent tetra faces (apex on the edge line, legs in-plane)
+  const perp=(v,d)=>{const t=V3.sub(v,V3.mul(d,V3.dot(v,d)));return t;};
   for(const [ia,ib] of edges){
     const A=nodes[ia],B=nodes[ib];
     const d=V3.norm(V3.sub(B,A));
-    let u=Math.abs(d[1])<0.99?V3.norm(V3.cross(d,[0,1,0])):[1,0,0];
-    const w=V3.norm(V3.cross(d,u));
-    const h=thick/2;
+    const mid=V3.mul(V3.add(A,B),0.5);
     const cc=edgeColor((A[1]+B[1])/2);
-    const corners=[[+1,+1],[+1,-1],[-1,-1],[-1,+1]];
-    const a4=corners.map(([su,sw])=>V3.add(A,V3.add(V3.mul(u,su*h),V3.mul(w,sw*h))));
-    const b4=corners.map(([su,sw])=>V3.add(B,V3.add(V3.mul(u,su*h),V3.mul(w,sw*h))));
-    for(let k=0;k<4;k++){
-      const k2=(k+1)%4;
-      const n=V3.norm(V3.add(
-        V3.add(V3.mul(u,corners[k][0]+corners[k2][0]),V3.mul(w,corners[k][1]+corners[k2][1])),[0,0,0]));
-      pushTri(a4[k],b4[k],b4[k2],n,cc); pushTri(a4[k],b4[k2],a4[k2],n,cc);
+    const key=Math.min(ia,ib)+"_"+Math.max(ia,ib);
+    let f1=null,f2=null;
+    if(key in tetOf){
+      const t=tets[tetOf[key]];
+      const rest=t.filter(ix=>ix!==ia&&ix!==ib);   // the 2 face-completing verts
+      const p1=perp(V3.sub(nodes[rest[0]],mid),d);
+      const p2=perp(V3.sub(nodes[rest[1]],mid),d);
+      if(V3.len(p1)>1e-5&&V3.len(p2)>1e-5){f1=V3.norm(p1);f2=V3.norm(p2);}
     }
-    // caps
-    const dn=V3.mul(d,-1);
-    pushTri(a4[0],a4[1],a4[2],dn,cc); pushTri(a4[0],a4[2],a4[3],dn,cc);
-    pushTri(b4[0],b4[2],b4[1],d,cc);  pushTri(b4[0],b4[3],b4[2],d,cc);
+    if(f1&&f2){
+      const w=thick*2.0;                            // leg length along each face
+      const c1=V3.mul(f1,w), c2=V3.mul(f2,w);
+      const a0=A, a1=V3.add(A,c1), a2=V3.add(A,c2);
+      const b0=B, b1=V3.add(B,c1), b2=V3.add(B,c2);
+      // side 1 (in plane of face ia-ib-rest0)
+      let n1=V3.norm(V3.cross(d,f1)); if(V3.dot(n1,f2)>0)n1=V3.mul(n1,-1);
+      pushTri(a0,b0,b1,n1,cc); pushTri(a0,b1,a1,n1,cc);
+      // side 2 (in plane of face ia-ib-rest1)
+      let n2=V3.norm(V3.cross(d,f2)); if(V3.dot(n2,f1)>0)n2=V3.mul(n2,-1);
+      pushTri(a0,b2,b0,n2,cc); pushTri(a0,a2,b2,n2,cc);
+      // base (inner face)
+      let n3=V3.norm(V3.cross(d,V3.sub(c2,c1)));
+      if(V3.dot(n3,V3.add(c1,c2))<0)n3=V3.mul(n3,-1);
+      pushTri(a1,b1,b2,n3,cc); pushTri(a1,b2,a2,n3,cc);
+      // caps
+      const dn=V3.mul(d,-1);
+      pushTri(a0,a1,a2,dn,cc); pushTri(b0,b2,b1,d,cc);
+    } else {
+      // fallback: square section (edges without tetra adjacency)
+      let u=Math.abs(d[1])<0.99?V3.norm(V3.cross(d,[0,1,0])):[1,0,0];
+      const wv=V3.norm(V3.cross(d,u));
+      const h=thick/2;
+      const corners=[[+1,+1],[+1,-1],[-1,-1],[-1,+1]];
+      const a4=corners.map(([su,sw])=>V3.add(A,V3.add(V3.mul(u,su*h),V3.mul(wv,sw*h))));
+      const b4=corners.map(([su,sw])=>V3.add(B,V3.add(V3.mul(u,su*h),V3.mul(wv,sw*h))));
+      for(let k=0;k<4;k++){
+        const k2=(k+1)%4;
+        const n=V3.norm(V3.add(
+          V3.add(V3.mul(u,corners[k][0]+corners[k2][0]),V3.mul(wv,corners[k][1]+corners[k2][1])),[0,0,0]));
+        pushTri(a4[k],b4[k],b4[k2],n,cc); pushTri(a4[k],b4[k2],a4[k2],n,cc);
+      }
+      const dn=V3.mul(d,-1);
+      pushTri(a4[0],a4[1],a4[2],dn,cc); pushTri(a4[0],a4[2],a4[3],dn,cc);
+      pushTri(b4[0],b4[2],b4[1],d,cc);  pushTri(b4[0],b4[3],b4[2],d,cc);
+    }
   }
   // joint octahedra
   if(joints){
@@ -428,11 +472,11 @@ const S={count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,
 let sculpture=null; // {nodes,edges}
 
 function regenerate(){
-  const {nodes,edges,rand}=buildChain(S.count,S.mutSeed||1);
+  const {nodes,edges,tets,rand}=buildChain(S.count,S.mutSeed||1);
   let d=orientAndDeform(nodes,S.twist,S.curl,S.mutAmt,rand);
-  const st=applyStructure(d,edges,S.structure);
+  const st=applyStructure(d,edges,S.structure,tets);
   sculpture=st;
-  const m=beamMesh(st.nodes,st.edges,S.thick,S.colorMode,S.hue,S.joints===1);
+  const m=beamMesh(st.nodes,st.edges,S.thick,S.colorMode,S.hue,S.joints===1,st.tets);
   vertCount=m.pos.length/3;
   gl.bindBuffer(gl.ARRAY_BUFFER,bufPos); gl.bufferData(gl.ARRAY_BUFFER,m.pos,gl.STATIC_DRAW);
   gl.bindBuffer(gl.ARRAY_BUFFER,bufNrm); gl.bufferData(gl.ARRAY_BUFFER,m.nrm,gl.STATIC_DRAW);
