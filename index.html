@@ -324,13 +324,13 @@ function applyStructure(nodes, edges, mode, tets){
 
 /* ---------------- mesh building: beams + joint spheres ---------------- */
 function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, tets, wire){
-  // map each edge -> first tetra containing it (for face-aligned struts)
+  // map each edge -> ALL tetras containing it (for face-aligned struts)
   const tetOf={};
   if(tets) for(let ti=0;ti<tets.length;ti++){
     const t=tets[ti];
     for(let a=0;a<4;a++)for(let b=a+1;b<4;b++){
       const k=Math.min(t[a],t[b])+"_"+Math.max(t[a],t[b]);
-      if(!(k in tetOf)) tetOf[k]=ti;
+      (tetOf[k]=tetOf[k]||[]).push(ti);
     }
   }
   const pos=[],nrm=[],col=[];
@@ -372,37 +372,42 @@ function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, tets, wire){
     const mid=V3.mul(V3.add(A,B),0.5);
     const cc=edgeColor((A[1]+B[1])/2);
     const key=Math.min(ia,ib)+"_"+Math.max(ia,ib);
-    let f1=null,f2=null;
+    // one flush wedge per adjacent tetra: shared edges get a wedge for
+    // EVERY tetra they belong to, so no face is missing its framing
+    let built=false;
     if(key in tetOf){
-      const t=tets[tetOf[key]];
-      const rest=t.filter(ix=>ix!==ia&&ix!==ib);   // the 2 face-completing verts
-      const p1=perp(V3.sub(nodes[rest[0]],mid),d);
-      const p2=perp(V3.sub(nodes[rest[1]],mid),d);
-      if(V3.len(p1)>1e-5&&V3.len(p2)>1e-5){f1=V3.norm(p1);f2=V3.norm(p2);}
-    }
-    if(f1&&f2){
       const w=thick*2.0;                            // leg length along each face
       const L=V3.len(V3.sub(B,A));
       const ins=Math.min(w*1.5,L*0.3);              // end taper length
       const A2=V3.add(A,V3.mul(d,ins)), B2=V3.sub(B,V3.mul(d,ins));
-      const c1=V3.mul(f1,w), c2=V3.mul(f2,w);
-      const a0=A2, a1=V3.add(A2,c1), a2=V3.add(A2,c2);
-      const b0=B2, b1=V3.add(B2,c1), b2=V3.add(B2,c2);
-      // side 1 (in plane of face ia-ib-rest0)
-      let n1=V3.norm(V3.cross(d,f1)); if(V3.dot(n1,f2)>0)n1=V3.mul(n1,-1);
-      pushTri(a0,b0,b1,n1,cc); pushTri(a0,b1,a1,n1,cc);
-      // side 2 (in plane of face ia-ib-rest1)
-      let n2=V3.norm(V3.cross(d,f2)); if(V3.dot(n2,f1)>0)n2=V3.mul(n2,-1);
-      pushTri(a0,b2,b0,n2,cc); pushTri(a0,a2,b2,n2,cc);
-      // base (inner face)
-      let n3=V3.norm(V3.cross(d,V3.sub(c2,c1)));
-      if(V3.dot(n3,V3.add(c1,c2))<0)n3=V3.mul(n3,-1);
-      pushTri(a1,b1,b2,n3,cc); pushTri(a1,b2,a2,n3,cc);
-      // tapered ends: section converges to the exact vertex point,
-      // flush sides stay in the face planes, so struts meet at points
-      pushTri(A,a0,a1,n1,cc); pushTri(A,a2,a0,n2,cc); pushTri(A,a1,a2,n3,cc);
-      pushTri(B,b1,b0,n1,cc); pushTri(B,b0,b2,n2,cc); pushTri(B,b2,b1,n3,cc);
-    } else {
+      for(const ti of tetOf[key]){
+        const t=tets[ti];
+        const rest=t.filter(ix=>ix!==ia&&ix!==ib);  // the 2 face-completing verts
+        const p1=perp(V3.sub(nodes[rest[0]],mid),d);
+        const p2=perp(V3.sub(nodes[rest[1]],mid),d);
+        if(V3.len(p1)<=1e-5||V3.len(p2)<=1e-5) continue;
+        const f1=V3.norm(p1), f2=V3.norm(p2);
+        const c1=V3.mul(f1,w), c2=V3.mul(f2,w);
+        const a0=A2, a1=V3.add(A2,c1), a2=V3.add(A2,c2);
+        const b0=B2, b1=V3.add(B2,c1), b2=V3.add(B2,c2);
+        // side 1 (in plane of face ia-ib-rest0)
+        let n1=V3.norm(V3.cross(d,f1)); if(V3.dot(n1,f2)>0)n1=V3.mul(n1,-1);
+        pushTri(a0,b0,b1,n1,cc); pushTri(a0,b1,a1,n1,cc);
+        // side 2 (in plane of face ia-ib-rest1)
+        let n2=V3.norm(V3.cross(d,f2)); if(V3.dot(n2,f1)>0)n2=V3.mul(n2,-1);
+        pushTri(a0,b2,b0,n2,cc); pushTri(a0,a2,b2,n2,cc);
+        // base (inner face)
+        let n3=V3.norm(V3.cross(d,V3.sub(c2,c1)));
+        if(V3.dot(n3,V3.add(c1,c2))<0)n3=V3.mul(n3,-1);
+        pushTri(a1,b1,b2,n3,cc); pushTri(a1,b2,a2,n3,cc);
+        // tapered ends: section converges to the exact vertex point,
+        // flush sides stay in the face planes, so struts meet at points
+        pushTri(A,a0,a1,n1,cc); pushTri(A,a2,a0,n2,cc); pushTri(A,a1,a2,n3,cc);
+        pushTri(B,b1,b0,n1,cc); pushTri(B,b0,b2,n2,cc); pushTri(B,b2,b1,n3,cc);
+        built=true;
+      }
+    }
+    if(!built){
       // fallback: square section (edges without tetra adjacency)
       let u=Math.abs(d[1])<0.99?V3.norm(V3.cross(d,[0,1,0])):[1,0,0];
       const wv=V3.norm(V3.cross(d,u));
