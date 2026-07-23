@@ -121,6 +121,12 @@
       <button data-v="1">Nodes</button>
     </div></div>
 
+  <div class="ctl"><label class="cap" style="margin-bottom:9px">Render</label>
+    <div class="seg" id="segWire">
+      <button data-v="0" class="on">Solid</button>
+      <button data-v="1">Wire</button>
+    </div></div>
+
   <div class="hr"></div>
 
   <div class="ctl"><label class="cap" style="margin-bottom:9px">Finish</label>
@@ -317,7 +323,7 @@ function applyStructure(nodes, edges, mode, tets){
 }
 
 /* ---------------- mesh building: beams + joint spheres ---------------- */
-function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, tets){
+function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, tets, wire){
   // map each edge -> first tetra containing it (for face-aligned struts)
   const tetOf={};
   if(tets) for(let ti=0;ti<tets.length;ti++){
@@ -347,6 +353,15 @@ function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, tets){
   }
   function pushTri(a,b,c,n,cc){
     pos.push(...a,...b,...c); nrm.push(...n,...n,...n); col.push(...cc,...cc,...cc);
+  }
+  // wireframe: one GL line per edge, flat ink color
+  if(wire){
+    for(const [ia,ib] of edges){
+      const A=nodes[ia],B=nodes[ib];
+      const cc=edgeColor((A[1]+B[1])/2);
+      pos.push(...A,...B); nrm.push(0,1,0,0,1,0); col.push(...cc,...cc);
+    }
+    return {pos:new Float32Array(pos),nrm:new Float32Array(nrm),col:new Float32Array(col)};
   }
   // triangular-section beam along each edge, faces flush with the
   // two adjacent tetra faces (apex on the edge line, legs in-plane)
@@ -437,7 +452,7 @@ void main(){
 const FS=`
 precision mediump float;
 varying vec3 vN; varying vec3 vC; varying vec3 vW;
-uniform vec3 uEye; uniform float uFar;
+uniform vec3 uEye; uniform float uFar; uniform float uFlat;
 void main(){
   vec3 N=normalize(vN);
   vec3 L1=normalize(vec3(0.6,0.9,0.5));
@@ -447,6 +462,7 @@ void main(){
   float spec=pow(max(dot(reflect(-L1,N),Vv),0.0),42.0)*0.5;
   float rim=pow(1.0-max(dot(N,Vv),0.0),2.6)*0.55;
   vec3 c=vC*(0.16+dif)+vec3(spec)*0.35+vC*rim;
+  c=mix(c,vC,uFlat);                 // wireframe: flat ink, no lighting
   float fog=smoothstep(uFar,uFar*0.18,length(uEye-vW));
   gl_FragColor=vec4(mix(vec3(1.0),c,fog),1.0);
 }`;
@@ -463,7 +479,8 @@ const loc={
   uProj:gl.getUniformLocation(prog,"uProj"),
   uView:gl.getUniformLocation(prog,"uView"),
   uEye:gl.getUniformLocation(prog,"uEye"),
-  uFar:gl.getUniformLocation(prog,"uFar")
+  uFar:gl.getUniformLocation(prog,"uFar"),
+  uFlat:gl.getUniformLocation(prog,"uFlat")
 };
 const bufPos=gl.createBuffer(),bufNrm=gl.createBuffer(),bufCol=gl.createBuffer();
 let vertCount=0;
@@ -472,7 +489,7 @@ gl.clearColor(1,1,1,1);
 
 /* ---------------- state ---------------- */
 const S={count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,
-         colorMode:0,hue:0,spin:1,mutSeed:0,mutAmt:0};
+         colorMode:0,hue:0,spin:1,mutSeed:0,mutAmt:0,wire:0};
 let sculpture=null; // {nodes,edges}
 
 function regenerate(){
@@ -480,7 +497,7 @@ function regenerate(){
   let d=orientAndDeform(nodes,S.twist,S.curl,S.mutAmt,rand);
   const st=applyStructure(d,edges,S.structure,tets);
   sculpture=st;
-  const m=beamMesh(st.nodes,st.edges,S.thick,S.colorMode,S.hue,S.joints===1,st.tets);
+  const m=beamMesh(st.nodes,st.edges,S.thick,S.colorMode,S.hue,S.joints===1,st.tets,S.wire===1);
   vertCount=m.pos.length/3;
   gl.bindBuffer(gl.ARRAY_BUFFER,bufPos); gl.bufferData(gl.ARRAY_BUFFER,m.pos,gl.STATIC_DRAW);
   gl.bindBuffer(gl.ARRAY_BUFFER,bufNrm); gl.bufferData(gl.ARRAY_BUFFER,m.nrm,gl.STATIC_DRAW);
@@ -537,7 +554,8 @@ function frame(now){
     gl.enableVertexAttribArray(attr);
     gl.vertexAttribPointer(attr,3,gl.FLOAT,false,0,0);
   }
-  gl.drawArrays(gl.TRIANGLES,0,vertCount);
+  gl.uniform1f(loc.uFlat,S.wire?1:0);
+  gl.drawArrays(S.wire?gl.LINES:gl.TRIANGLES,0,vertCount);
   requestAnimationFrame(frame);
 }
 
@@ -564,19 +582,20 @@ function bindSeg(id,key,cb){
 }
 bindSeg("segMirror","structure");
 bindSeg("segJoint","joints");
+bindSeg("segWire","wire");
 bindSeg("segColor","colorMode");
 bindSeg("segSpin","spin",()=>{});
 $("mutate").addEventListener("click",()=>{
   S.mutSeed=(Math.random()*1e9)>>>0; S.mutAmt=0.16; regenerate();
 });
 $("reset").addEventListener("click",()=>{
-  Object.assign(S,{count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,colorMode:0,hue:0,mutSeed:0,mutAmt:0});
+  Object.assign(S,{count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,colorMode:0,hue:0,mutSeed:0,mutAmt:0,wire:0});
   $("count").value=1;$("oCount").textContent=1;
   $("twist").value=0;$("oTwist").textContent="0°";
   $("curl").value=0;$("oCurl").textContent="0°";
   $("thick").value=0.01;$("oThick").textContent="0.01";
   $("hue").value=0;$("oHue").textContent="0°";
-  [["segMirror",0],["segJoint",0],["segColor",0]].forEach(([id,v])=>{
+  [["segMirror",0],["segJoint",0],["segColor",0],["segWire",0]].forEach(([id,v])=>{
     $(id).querySelectorAll("button").forEach(b=>b.classList.toggle("on",parseInt(b.dataset.v)===v));});
   regenerate();
 });
