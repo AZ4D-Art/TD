@@ -47,6 +47,11 @@
   input[type=range]::-moz-range-track{height:1px;background:var(--faint)}
   input[type=range]::-moz-range-thumb{width:11px;height:11px;border-radius:50%;background:#fff;border:1px solid var(--ink)}
 
+  input[type=number]{width:100%;background:none;border:1px solid var(--line);color:var(--ink);
+    font-family:inherit;font-size:11px;font-weight:300;padding:9px 4px;text-align:center;
+    letter-spacing:.1em;font-variant-numeric:tabular-nums}
+  input[type=number]:focus{outline:none;border-color:var(--ink)}
+
   .seg{display:flex;border:1px solid var(--line)}
   .seg button{flex:1;padding:9px 0;background:none;border:none;color:var(--dim);cursor:pointer;
     font-family:inherit;font-size:8.5px;font-weight:300;letter-spacing:.22em;text-transform:uppercase;
@@ -96,6 +101,13 @@
 <aside id="panel">
   <div class="ctl"><label>Tetras <output id="oCount">1</output></label>
     <input type="range" id="count" min="1" max="60" step="1" value="1"></div>
+
+  <div class="ctl"><label class="cap" style="margin-bottom:9px">Add tetras</label>
+    <div class="row2" style="grid-template-columns:56px 1fr">
+      <input type="number" id="addN" min="1" max="99" value="1">
+      <button class="btn" id="addTet">Add</button>
+    </div>
+    <p class="cap" id="growHint" style="margin-top:8px;line-height:1.6">Click a face to grow from</p></div>
 
   <div class="ctl"><label>Twist <output id="oTwist">0°</output></label>
     <input type="range" id="twist" min="-180" max="180" step="1" value="0"></div>
@@ -193,34 +205,32 @@ function mat4LookAt(eye,c,up){
    Boerdijk–Coxeter style chain: start with a regular tetra,
    each step reflect the oldest vertex through the plane of
    the other three -> new tetra sharing that face.            */
-function buildChain(nTetra, jitterSeed){
+/* Build from a growth plan. Each plan entry is one added tetra:
+   null              -> auto step (Boerdijk–Coxeter rotating reflection)
+   {tet, slot}       -> grow on the face of tets[tet] opposite vertex `slot` */
+function buildFromPlan(plan, jitterSeed){
   const e=1.0;                       // edge length
-  // regular tetrahedron
-  let tet=[
+  let rand=(function(s){return function(){s=(s*1664525+1013904223)>>>0;return s/4294967296;};})(jitterSeed>>>0);
+  const nodes=[
     [ Math.sqrt(8/9)*e,          0,        -e/3],
     [-Math.sqrt(2/9)*e,  Math.sqrt(2/3)*e, -e/3],
     [-Math.sqrt(2/9)*e, -Math.sqrt(2/3)*e, -e/3],
     [0,0,e]
   ];
-  // seeded jitter (mutate)
-  let rand=(function(s){return function(){s=(s*1664525+1013904223)>>>0;return s/4294967296;};})(jitterSeed>>>0);
-  const jit=jitterSeed?0.0:0.0; // jitter applied later at deform stage
-
-  const nodes=[...tet.map(p=>[...p])];
   const tets=[[0,1,2,3]];
   let cur=[0,1,2,3];                 // node indices of current tetra
-  let oldest=0;                      // rotating pointer: which slot to reflect
-  for(let i=1;i<nTetra;i++){
-    const ref=cur[oldest%4];
-    const face=cur.filter((_,k)=>k!==(oldest%4));
+  let oldest=0;                      // rotating pointer for auto growth
+  for(const step of plan){
+    let baseTet=cur, slot=oldest%4;
+    if(step&&step.tet>=0&&step.tet<tets.length){baseTet=tets[step.tet];slot=step.slot;}
+    const ref=baseTet[slot];
+    const face=baseTet.filter((_,k)=>k!==slot);
     const [A,B,C]=face.map(ix=>nodes[ix]);
-    // reflect nodes[ref] through plane ABC
+    // reflect nodes[ref] through plane ABC -> new vertex
     const n=V3.norm(V3.cross(V3.sub(B,A),V3.sub(C,A)));
     const d=V3.dot(V3.sub(nodes[ref],A),n);
-    const P=V3.sub(nodes[ref],V3.mul(n,2*d));
-    nodes.push(P);
-    const newIdx=nodes.length-1;
-    cur=[face[0],face[1],face[2],newIdx];
+    nodes.push(V3.sub(nodes[ref],V3.mul(n,2*d)));
+    cur=[face[0],face[1],face[2],nodes.length-1];
     tets.push([...cur]);
     oldest++;
   }
@@ -232,6 +242,25 @@ function buildChain(nTetra, jitterSeed){
       if(!eset.has(k)){eset.add(k);edges.push([Math.min(t[a],t[b]),Math.max(t[a],t[b])]);}
     }
   return {nodes,edges,tets,rand};
+}
+
+/* unique faces of the tet complex.
+   slot = index (0..3) of the opposite vertex in the owner tet;
+   owners counts how many tets share the face (1 = boundary, pickable) */
+function computeFaces(nodes,tets){
+  const seen={},list=[];
+  for(let ti=0;ti<tets.length;ti++){
+    const t=tets[ti];
+    const tc=V3.mul(V3.add(V3.add(nodes[t[0]],nodes[t[1]]),V3.add(nodes[t[2]],nodes[t[3]])),0.25);
+    for(const c of [[1,2,3,0],[0,2,3,1],[0,1,3,2],[0,1,2,3]]){
+      const idx=[t[c[0]],t[c[1]],t[c[2]]];
+      const k=idx.slice().sort((a,b)=>a-b).join("_");
+      if(seen[k]){seen[k].owners++;continue;}
+      const rec={idx,tc,tet:ti,slot:c[3],owners:1};
+      seen[k]=rec;list.push(rec);
+    }
+  }
+  return list;
 }
 
 /* deform: recentre on principal (helix) axis = x of chain growth.
@@ -323,16 +352,7 @@ function applyStructure(nodes, edges, mode, tets){
 }
 
 /* ---------------- mesh building: beams + joint spheres ---------------- */
-function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, tets, wire){
-  // map each edge -> ALL tetras containing it (for face-aligned struts)
-  const tetOf={};
-  if(tets) for(let ti=0;ti<tets.length;ti++){
-    const t=tets[ti];
-    for(let a=0;a<4;a++)for(let b=a+1;b<4;b++){
-      const k=Math.min(t[a],t[b])+"_"+Math.max(t[a],t[b]);
-      (tetOf[k]=tetOf[k]||[]).push(ti);
-    }
-  }
+function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, faceList, wire, sel){
   const pos=[],nrm=[],col=[];
   let ymin=1e9,ymax=-1e9;
   nodes.forEach(p=>{ymin=Math.min(ymin,p[1]);ymax=Math.max(ymax,p[1]);});
@@ -359,17 +379,8 @@ function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, tets, wire){
   // frame — its outer boundary IS the face's edges, its inner triangle is
   // the opening, extruded inward. Adjacent faces share outer edges exactly,
   // so all struts meet perfectly flush, with corners mitred in-plane.
-  const faceSeen={}, faceList=[];
-  if(tets) for(const t of tets){
-    const tc=V3.mul(V3.add(V3.add(nodes[t[0]],nodes[t[1]]),V3.add(nodes[t[2]],nodes[t[3]])),0.25);
-    for(const c of [[0,1,2],[0,1,3],[0,2,3],[1,2,3]]){
-      const idx=[t[c[0]],t[c[1]],t[c[2]]].slice().sort((x,y)=>x-y);
-      const k=idx.join("_");
-      if(faceSeen[k]) continue; faceSeen[k]=1;
-      faceList.push({idx,tc});
-    }
-  }
-  if(faceList.length){
+  const ACCENT=[0.92,0.34,0.16];      // selected-face highlight
+  if(faceList&&faceList.length){
     // wire mode: the true tetra edges…
     if(wire) for(const [ia,ib] of edges)
       pushLine(nodes[ia],nodes[ib],edgeColor((nodes[ia][1]+nodes[ib][1])/2));
@@ -377,7 +388,7 @@ function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, tets, wire){
     for(const f of faceList){
       const O=f.idx.map(i=>nodes[i]);
       const fc=V3.mul(V3.add(V3.add(O[0],O[1]),O[2]),1/3);
-      const cc=edgeColor(fc[1]);
+      const cc=(sel&&f.tet===sel.tet&&f.slot===sel.slot)?ACCENT:edgeColor(fc[1]);
       const nRaw=V3.norm(V3.cross(V3.sub(O[1],O[0]),V3.sub(O[2],O[0])));
       let n=nRaw;
       if(V3.dot(n,V3.sub(fc,f.tc))<0)n=V3.mul(n,-1);       // outward from tet
@@ -506,14 +517,24 @@ gl.clearColor(1,1,1,1);
 /* ---------------- state ---------------- */
 const S={count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,
          colorMode:0,hue:0,spin:1,mutSeed:0,mutAmt:0,wire:0};
-let sculpture=null; // {nodes,edges}
+let sculpture=null; // {nodes,edges,tets}
+let plan=[];        // growth history: null = auto step, {tet,slot} = picked face
+let selFace=null;   // currently selected face {tet,slot} (render-space tet index)
+let pickFaces=[];   // clickable faces with resolved positions
 
 function regenerate(){
-  const {nodes,edges,tets,rand}=buildChain(S.count,S.mutSeed||1);
-  let d=orientAndDeform(nodes,S.twist,S.curl,S.mutAmt,rand);
-  const st=applyStructure(d,edges,S.structure,tets);
+  const base=buildFromPlan(plan,S.mutSeed||1);
+  let d=orientAndDeform(base.nodes,S.twist,S.curl,S.mutAmt,base.rand);
+  const st=applyStructure(d,base.edges,S.structure,base.tets);
+  st.baseTetCount=base.tets.length;
   sculpture=st;
-  const m=beamMesh(st.nodes,st.edges,S.thick,S.colorMode,S.hue,S.joints===1,st.tets,S.wire===1);
+  const faceList=computeFaces(st.nodes,st.tets);
+  pickFaces=faceList.map(f=>({p0:st.nodes[f.idx[0]],p1:st.nodes[f.idx[1]],p2:st.nodes[f.idx[2]],
+                              tet:f.tet,slot:f.slot,boundary:f.owners===1}));
+  if(selFace&&!pickFaces.some(f=>f.boundary&&f.tet===selFace.tet&&f.slot===selFace.slot)) selFace=null;
+  const gh=document.getElementById("growHint");
+  if(gh) gh.textContent=selFace?"Face selected — Add grows there":"Click a face to grow from";
+  const m=beamMesh(st.nodes,st.edges,S.thick,S.colorMode,S.hue,S.joints===1,faceList,S.wire===1,selFace);
   vertCount=m.pos.length/3;
   gl.bindBuffer(gl.ARRAY_BUFFER,bufPos); gl.bufferData(gl.ARRAY_BUFFER,m.pos,gl.STATIC_DRAW);
   gl.bindBuffer(gl.ARRAY_BUFFER,bufNrm); gl.bufferData(gl.ARRAY_BUFFER,m.nrm,gl.STATIC_DRAW);
@@ -525,15 +546,49 @@ function regenerate(){
 
 /* ---------------- camera / interaction ---------------- */
 const cam={theta:0.6,phi:1.15,dist:9,fit:9,vel:0};
-let dragging=false,px=0,py=0,pinch=0;
-canvas.addEventListener("pointerdown",e=>{dragging=true;px=e.clientX;py=e.clientY;canvas.setPointerCapture(e.pointerId);});
+let dragging=false,px=0,py=0,pinch=0,sx=0,sy=0;
+
+/* ---- face picking (click = choose the face to grow from) ---- */
+function rayTri(o,d,a,b,c){
+  const E1=V3.sub(b,a),E2=V3.sub(c,a),P=V3.cross(d,E2),det=V3.dot(E1,P);
+  if(Math.abs(det)<1e-9)return null;
+  const inv=1/det,T=V3.sub(o,a),u=V3.dot(T,P)*inv; if(u<0||u>1)return null;
+  const Q=V3.cross(T,E1),v=V3.dot(d,Q)*inv; if(v<0||u+v>1)return null;
+  const t=V3.dot(E2,Q)*inv; return t>1e-4?t:null;
+}
+function pickFace(e){
+  const rect=canvas.getBoundingClientRect();
+  const nx=((e.clientX-rect.left)/rect.width)*2-1;
+  const ny=1-((e.clientY-rect.top)/rect.height)*2;
+  const eye=[cam.dist*Math.sin(cam.phi)*Math.cos(cam.theta),
+             cam.dist*Math.cos(cam.phi),
+             cam.dist*Math.sin(cam.phi)*Math.sin(cam.theta)];
+  const fwd=V3.norm(V3.mul(eye,-1));
+  const right=V3.norm(V3.cross(fwd,[0,1,0]));
+  const upv=V3.cross(right,fwd);
+  const th=Math.tan(19*Math.PI/180), asp=rect.width/rect.height;
+  const dir=V3.norm(V3.add(fwd,V3.add(V3.mul(right,nx*th*asp),V3.mul(upv,ny*th))));
+  let best=null,bt=1e9;
+  for(const f of pickFaces){
+    if(!f.boundary)continue;
+    const t=rayTri(eye,dir,f.p0,f.p1,f.p2);
+    if(t&&t<bt){bt=t;best=f;}
+  }
+  selFace=best?((selFace&&selFace.tet===best.tet&&selFace.slot===best.slot)?null
+               :{tet:best.tet,slot:best.slot}):null;
+  regenerate();
+}
+
+canvas.addEventListener("pointerdown",e=>{dragging=true;px=e.clientX;py=e.clientY;sx=e.clientX;sy=e.clientY;canvas.setPointerCapture(e.pointerId);});
 canvas.addEventListener("pointermove",e=>{
   if(!dragging)return;
   cam.theta+=(e.clientX-px)*0.0055; cam.phi-=(e.clientY-py)*0.0055;
   cam.phi=Math.max(0.08,Math.min(Math.PI-0.08,cam.phi));
   px=e.clientX;py=e.clientY;
 });
-addEventListener("pointerup",()=>dragging=false);
+addEventListener("pointerup",e=>{
+  if(dragging&&e.target===canvas&&Math.hypot(e.clientX-sx,e.clientY-sy)<6) pickFace(e);
+  dragging=false;});
 canvas.addEventListener("wheel",e=>{e.preventDefault();
   cam.dist*=1+Math.sign(e.deltaY)*0.07; cam.dist=Math.max(2,Math.min(40,cam.dist));},{passive:false});
 canvas.addEventListener("touchstart",e=>{if(e.touches.length===2){
@@ -584,7 +639,26 @@ function bindRange(id,out,key,fmt){
     regenerate();
   });
 }
-bindRange("count","oCount","count",v=>v);
+// Tetras slider rebuilds a fresh auto chain (clears custom growth)
+$("count").addEventListener("input",e=>{
+  const v=parseInt(e.target.value); S.count=v;
+  plan=Array(Math.max(v-1,0)).fill(null);
+  selFace=null;
+  $("oCount").textContent=v; regenerate();
+});
+// Add button: grow n tetras, starting from the picked face if one is selected
+$("addTet").addEventListener("click",()=>{
+  let n=parseInt($("addN").value)||1; n=Math.max(1,Math.min(99,n));
+  const bc=sculpture?(sculpture.baseTetCount||1):1;
+  for(let i=0;i<n;i++){
+    if(i===0&&selFace) plan.push({tet:selFace.tet%bc,slot:selFace.slot});
+    else plan.push(null);
+  }
+  selFace=null;
+  const total=plan.length+1; S.count=total;
+  $("count").value=Math.min(total,60); $("oCount").textContent=total;
+  regenerate();
+});
 bindRange("twist","oTwist","twist",v=>v+"°");
 bindRange("curl","oCurl","curl",v=>v+"°");
 bindRange("thick","oThick","thick",v=>v.toFixed(2));
@@ -606,6 +680,7 @@ $("mutate").addEventListener("click",()=>{
 });
 $("reset").addEventListener("click",()=>{
   Object.assign(S,{count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,colorMode:0,hue:0,mutSeed:0,mutAmt:0,wire:0});
+  plan=[]; selFace=null; $("addN").value=1;
   $("count").value=1;$("oCount").textContent=1;
   $("twist").value=0;$("oTwist").textContent="0°";
   $("curl").value=0;$("oCurl").textContent="0°";
