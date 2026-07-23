@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AZ4D — TETRABUILDER</title>
+<style>
+  :root{
+    --ink:#ffffff; --dim:rgba(255,255,255,.55); --faint:rgba(255,255,255,.22);
+    --panel:rgba(8,8,8,.82); --line:rgba(255,255,255,.14);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:#000;color:var(--ink);
+    font-family:"Plus Jakarta Sans","Helvetica Neue",Arial,sans-serif;font-weight:300}
+  canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+  ::selection{background:#fff;color:#000}
+
+  /* ---------- brand ---------- */
+  #brand{position:fixed;top:26px;left:50%;transform:translateX(-50%);text-align:center;
+    pointer-events:none;z-index:5;mix-blend-mode:difference}
+  #brand h1{font-size:15px;font-weight:300;letter-spacing:.55em;text-indent:.55em}
+  #brand p{margin-top:6px;font-size:9px;letter-spacing:.34em;text-indent:.34em;color:var(--dim)}
+
+  /* ---------- panel ---------- */
+  #panel{position:fixed;top:0;right:0;height:100%;width:264px;z-index:10;
+    background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border-left:1px solid var(--line);padding:74px 26px 26px;
+    display:flex;flex-direction:column;gap:20px;overflow-y:auto;
+    transition:transform .55s cubic-bezier(.19,1,.22,1)}
+  #panel.hidden{transform:translateX(100%)}
+  #panel::-webkit-scrollbar{width:0}
+
+  .ctl label{display:flex;justify-content:space-between;align-items:baseline;
+    font-size:9px;letter-spacing:.28em;text-transform:uppercase;color:var(--dim);margin-bottom:9px}
+  .ctl label output{color:var(--ink);letter-spacing:.1em;font-variant-numeric:tabular-nums}
+
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:18px;background:transparent;cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:1px;background:var(--faint)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;margin-top:-5px;
+    border-radius:50%;background:#000;border:1px solid var(--ink);transition:transform .25s,background .25s}
+  input[type=range]:hover::-webkit-slider-thumb,input[type=range]:active::-webkit-slider-thumb{background:var(--ink);transform:scale(1.25)}
+  input[type=range]::-moz-range-track{height:1px;background:var(--faint)}
+  input[type=range]::-moz-range-thumb{width:11px;height:11px;border-radius:50%;background:#000;border:1px solid var(--ink)}
+
+  .seg{display:flex;border:1px solid var(--line)}
+  .seg button{flex:1;padding:9px 0;background:none;border:none;color:var(--dim);cursor:pointer;
+    font-family:inherit;font-size:8.5px;font-weight:300;letter-spacing:.22em;text-transform:uppercase;
+    transition:color .3s,background .3s}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button.on{background:var(--ink);color:#000}
+  .seg button:not(.on):hover{color:var(--ink)}
+
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .btn{display:block;width:100%;padding:11px 0;background:none;border:1px solid var(--line);
+    color:var(--dim);cursor:pointer;font-family:inherit;font-size:9px;font-weight:300;
+    letter-spacing:.26em;text-transform:uppercase;transition:all .35s}
+  .btn:hover{border-color:var(--ink);color:var(--ink);letter-spacing:.32em}
+  .btn.solid{border-color:var(--ink);color:var(--ink)}
+  .btn.solid:hover{background:var(--ink);color:#000}
+
+  .hr{border-top:1px solid var(--line);margin:2px 0}
+  .cap{font-size:8px;letter-spacing:.3em;text-transform:uppercase;color:var(--faint)}
+
+  /* ---------- toggle tab ---------- */
+  #tab{position:fixed;top:50%;right:264px;transform:translateY(-50%);z-index:11;
+    width:26px;height:64px;background:var(--panel);border:1px solid var(--line);border-right:none;
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    color:var(--dim);cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;
+    transition:right .55s cubic-bezier(.19,1,.22,1),color .3s}
+  #tab:hover{color:var(--ink)}
+  #panel.hidden~#tab{right:0}
+
+  /* ---------- footer hint ---------- */
+  #hint{position:fixed;left:26px;bottom:22px;z-index:5;font-size:8.5px;letter-spacing:.26em;
+    text-transform:uppercase;color:var(--faint);pointer-events:none;transition:opacity 1s}
+
+  @media(max-width:640px){
+    #panel{width:232px;padding:66px 20px 20px}
+    #tab{right:232px}
+    #panel.hidden~#tab{right:0}
+    #brand{top:18px}
+    #hint{display:none}
+  }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="brand">
+  <h1>AZ4D</h1>
+  <p>TETRABUILDER</p>
+</div>
+
+<aside id="panel">
+  <div class="ctl"><label>Tetras <output id="oCount">18</output></label>
+    <input type="range" id="count" min="1" max="60" step="1" value="18"></div>
+
+  <div class="ctl"><label>Twist <output id="oTwist">0°</output></label>
+    <input type="range" id="twist" min="-180" max="180" step="1" value="0"></div>
+
+  <div class="ctl"><label>Curl <output id="oCurl">0°</output></label>
+    <input type="range" id="curl" min="-90" max="90" step="1" value="0"></div>
+
+  <div class="ctl"><label>Strut <output id="oThick">0.05</output></label>
+    <input type="range" id="thick" min="0.01" max="0.22" step="0.005" value="0.05"></div>
+
+  <div class="hr"></div>
+
+  <div class="ctl"><label class="cap" style="margin-bottom:9px">Structure</label>
+    <div class="seg" id="segMirror">
+      <button data-v="0" class="on">Single</button>
+      <button data-v="1">Mirror</button>
+      <button data-v="2">Star</button>
+    </div></div>
+
+  <div class="ctl"><label class="cap" style="margin-bottom:9px">Joints</label>
+    <div class="seg" id="segJoint">
+      <button data-v="0" class="on">None</button>
+      <button data-v="1">Nodes</button>
+    </div></div>
+
+  <div class="hr"></div>
+
+  <div class="ctl"><label class="cap" style="margin-bottom:9px">Finish</label>
+    <div class="seg" id="segColor">
+      <button data-v="0" class="on">Mono</button>
+      <button data-v="1">Spectrum</button>
+      <button data-v="2">Ember</button>
+    </div></div>
+
+  <div class="ctl"><label>Hue <output id="oHue">0°</output></label>
+    <input type="range" id="hue" min="0" max="360" step="1" value="0"></div>
+
+  <div class="hr"></div>
+
+  <div class="row2">
+    <button class="btn" id="mutate">Mutate</button>
+    <button class="btn" id="reset">Reset</button>
+  </div>
+  <div class="ctl"><label class="cap" style="margin-bottom:9px">Motion</label>
+    <div class="seg" id="segSpin">
+      <button data-v="1" class="on">Orbit</button>
+      <button data-v="0">Still</button>
+    </div></div>
+
+  <div class="hr"></div>
+
+  <button class="btn solid" id="savePng">Save Image</button>
+  <button class="btn" id="saveObj">Export .OBJ</button>
+  <p class="cap" style="line-height:1.9">Drag to orbit<br>Scroll / pinch to zoom</p>
+</aside>
+<button id="tab" title="toggle panel">◂</button>
+
+<div id="hint">Design your own tetra sculpture</div>
+
+<script>
+"use strict";
+/* ================================================================
+   AZ4D TETRABUILDER — dependency-free WebGL tetrahelix sculptor
+   Chain of regular tetrahedra grown by face reflection, rendered
+   as struts (beams), with twist/curl deformation and mirror modes.
+   ================================================================ */
+
+/* ---------------- tiny vector math ---------------- */
+const V3={
+  add:(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],
+  sub:(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],
+  mul:(a,s)=>[a[0]*s,a[1]*s,a[2]*s],
+  dot:(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],
+  cross:(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],
+  len:a=>Math.hypot(a[0],a[1],a[2]),
+  norm:a=>{const l=Math.hypot(a[0],a[1],a[2])||1;return[a[0]/l,a[1]/l,a[2]/l];}
+};
+function mat4Perspective(fov,asp,n,f){
+  const t=1/Math.tan(fov/2);
+  return [t/asp,0,0,0, 0,t,0,0, 0,0,(f+n)/(n-f),-1, 0,0,2*f*n/(n-f),0];
+}
+function mat4LookAt(eye,c,up){
+  const z=V3.norm(V3.sub(eye,c)),x=V3.norm(V3.cross(up,z)),y=V3.cross(z,x);
+  return [x[0],y[0],z[0],0, x[1],y[1],z[1],0, x[2],y[2],z[2],0,
+    -V3.dot(x,eye),-V3.dot(y,eye),-V3.dot(z,eye),1];
+}
+
+/* ---------------- sculpture generation ----------------
+   Boerdijk–Coxeter style chain: start with a regular tetra,
+   each step reflect the oldest vertex through the plane of
+   the other three -> new tetra sharing that face.            */
+function buildChain(nTetra, jitterSeed){
+  const e=1.0;                       // edge length
+  // regular tetrahedron
+  let tet=[
+    [ Math.sqrt(8/9)*e,          0,        -e/3],
+    [-Math.sqrt(2/9)*e,  Math.sqrt(2/3)*e, -e/3],
+    [-Math.sqrt(2/9)*e, -Math.sqrt(2/3)*e, -e/3],
+    [0,0,e]
+  ];
+  // seeded jitter (mutate)
+  let rand=(function(s){return function(){s=(s*1664525+1013904223)>>>0;return s/4294967296;};})(jitterSeed>>>0);
+  const jit=jitterSeed?0.0:0.0; // jitter applied later at deform stage
+
+  const nodes=[...tet.map(p=>[...p])];
+  const tets=[[0,1,2,3]];
+  let cur=[0,1,2,3];                 // node indices of current tetra
+  let oldest=0;                      // rotating pointer: which slot to reflect
+  for(let i=1;i<nTetra;i++){
+    const ref=cur[oldest%4];
+    const face=cur.filter((_,k)=>k!==(oldest%4));
+    const [A,B,C]=face.map(ix=>nodes[ix]);
+    // reflect nodes[ref] through plane ABC
+    const n=V3.norm(V3.cross(V3.sub(B,A),V3.sub(C,A)));
+    const d=V3.dot(V3.sub(nodes[ref],A),n);
+    const P=V3.sub(nodes[ref],V3.mul(n,2*d));
+    nodes.push(P);
+    const newIdx=nodes.length-1;
+    cur=[face[0],face[1],face[2],newIdx];
+    tets.push([...cur]);
+    oldest++;
+  }
+  // unique edges from tets
+  const eset=new Set(), edges=[];
+  for(const t of tets)
+    for(let a=0;a<4;a++)for(let b=a+1;b<4;b++){
+      const k=Math.min(t[a],t[b])+"_"+Math.max(t[a],t[b]);
+      if(!eset.has(k)){eset.add(k);edges.push([Math.min(t[a],t[b]),Math.max(t[a],t[b])]);}
+    }
+  return {nodes,edges,rand};
+}
+
+/* deform: recentre on principal (helix) axis = x of chain growth.
+   The BC helix grows roughly along one direction; compute centroid
+   line via first/last tetra centroids, re-orient to Y axis, then
+   apply twist (rot about Y per unit y) and curl (bend about Z).   */
+function orientAndDeform(nodes, twistDeg, curlDeg, mutAmt, rand){
+  const N=nodes.length;
+  // centroid
+  const c=[0,0,0]; nodes.forEach(p=>{c[0]+=p[0];c[1]+=p[1];c[2]+=p[2];});
+  c[0]/=N;c[1]/=N;c[2]/=N;
+  // principal axis via power iteration on covariance
+  let cov=[[0,0,0],[0,0,0],[0,0,0]];
+  nodes.forEach(p=>{const d=V3.sub(p,c);
+    for(let i=0;i<3;i++)for(let j=0;j<3;j++)cov[i][j]+=d[i]*d[j];});
+  let v=[1,0.3,0.2];
+  for(let k=0;k<24;k++){
+    v=[cov[0][0]*v[0]+cov[0][1]*v[1]+cov[0][2]*v[2],
+       cov[1][0]*v[0]+cov[1][1]*v[1]+cov[1][2]*v[2],
+       cov[2][0]*v[0]+cov[2][1]*v[1]+cov[2][2]*v[2]];
+    v=V3.norm(v);
+  }
+  // rotation taking v -> [0,1,0]
+  const up=[0,1,0];
+  const axis=V3.cross(v,up), s=V3.len(axis), co=V3.dot(v,up);
+  let R=[[1,0,0],[0,1,0],[0,0,1]];
+  if(s>1e-6){
+    const [ax,ay,az]=V3.norm(axis), t=1-co, si=s;
+    R=[[t*ax*ax+co,   t*ax*ay-si*az, t*ax*az+si*ay],
+       [t*ax*ay+si*az,t*ay*ay+co,    t*ay*az-si*ax],
+       [t*ax*az-si*ay,t*ay*az+si*ax, t*az*az+co   ]];
+  } else if(co<0){ R=[[1,0,0],[0,-1,0],[0,0,-1]]; }
+  let out=nodes.map(p=>{
+    const d=V3.sub(p,c);
+    return [R[0][0]*d[0]+R[0][1]*d[1]+R[0][2]*d[2],
+            R[1][0]*d[0]+R[1][1]*d[1]+R[1][2]*d[2],
+            R[2][0]*d[0]+R[2][1]*d[1]+R[2][2]*d[2]];
+  });
+  // vertical extent
+  let ymin=1e9,ymax=-1e9; out.forEach(p=>{ymin=Math.min(ymin,p[1]);ymax=Math.max(ymax,p[1]);});
+  const span=Math.max(ymax-ymin,1e-6);
+  const twist=twistDeg*Math.PI/180, curl=curlDeg*Math.PI/180;
+  out=out.map(p=>{
+    const t=(p[1]-ymin)/span;              // 0..1 along column
+    // twist about Y
+    const a=twist*t;
+    let x=p[0]*Math.cos(a)-p[2]*Math.sin(a);
+    let z=p[0]*Math.sin(a)+p[2]*Math.cos(a);
+    let y=p[1];
+    // curl: bend around Z axis progressively
+    const b=curl*t;
+    const nx=x*Math.cos(b)-(y-ymin)*Math.sin(b);
+    const ny=x*Math.sin(b)+(y-ymin)*Math.cos(b)+ymin;
+    // mutation jitter
+    if(mutAmt>0){
+      x=nx+(rand()-0.5)*mutAmt; y=ny+(rand()-0.5)*mutAmt; z=z+(rand()-0.5)*mutAmt;
+      return [x,y,z];
+    }
+    return [nx,ny,z];
+  });
+  // recentre
+  const c2=[0,0,0]; out.forEach(p=>{c2[0]+=p[0];c2[1]+=p[1];c2[2]+=p[2];});
+  out=out.map(p=>[p[0]-c2[0]/N,p[1]-c2[1]/N,p[2]-c2[2]/N]);
+  return out;
+}
+
+/* mirror modes: 0 single | 1 mirror (y -> -y copy) | 2 star (3 copies rot 120°) */
+function applyStructure(nodes, edges, mode){
+  if(mode===0) return {nodes,edges};
+  const N=nodes.length;
+  let outN=[...nodes.map(p=>[...p])], outE=[...edges.map(e=>[...e])];
+  if(mode===1){
+    let ymin=1e9; nodes.forEach(p=>ymin=Math.min(ymin,p[1]));
+    nodes.forEach(p=>outN.push([p[0],2*ymin-p[1]-0.001,p[2]]));
+    edges.forEach(e=>outE.push([e[0]+N,e[1]+N]));
+  } else {
+    for(let k=1;k<3;k++){
+      const a=k*2*Math.PI/3;
+      nodes.forEach(p=>outN.push([
+        p[0]*Math.cos(a)-p[2]*Math.sin(a), p[1],
+        p[0]*Math.sin(a)+p[2]*Math.cos(a)]));
+      edges.forEach(e=>outE.push([e[0]+k*N,e[1]+k*N]));
+    }
+  }
+  return {nodes:outN,edges:outE};
+}
+
+/* ---------------- mesh building: beams + joint spheres ---------------- */
+function beamMesh(nodes, edges, thick, colorMode, hueBase, joints){
+  const pos=[],nrm=[],col=[];
+  let ymin=1e9,ymax=-1e9;
+  nodes.forEach(p=>{ymin=Math.min(ymin,p[1]);ymax=Math.max(ymax,p[1]);});
+  const span=Math.max(ymax-ymin,1e-6);
+
+  function hsl(h,s,l){
+    h=((h%360)+360)%360/360;
+    const q=l<.5?l*(1+s):l+s-l*s, p=2*l-q;
+    const f=t=>{t=((t%1)+1)%1;
+      if(t<1/6)return p+(q-p)*6*t; if(t<1/2)return q; if(t<2/3)return p+(q-p)*(2/3-t)*6; return p;};
+    return [f(h+1/3),f(h),f(h-1/3)];
+  }
+  function edgeColor(midY){
+    const t=(midY-ymin)/span;
+    if(colorMode===0){const g=0.88; return [g,g,g];}
+    if(colorMode===1) return hsl(hueBase+t*300,0.65,0.6);
+    return hsl(hueBase+8+t*38,0.85,0.42+t*0.25); // ember
+  }
+  function pushTri(a,b,c,n,cc){
+    pos.push(...a,...b,...c); nrm.push(...n,...n,...n); col.push(...cc,...cc,...cc);
+  }
+  // square-section beam along each edge
+  for(const [ia,ib] of edges){
+    const A=nodes[ia],B=nodes[ib];
+    const d=V3.norm(V3.sub(B,A));
+    let u=Math.abs(d[1])<0.99?V3.norm(V3.cross(d,[0,1,0])):[1,0,0];
+    const w=V3.norm(V3.cross(d,u));
+    const h=thick/2;
+    const cc=edgeColor((A[1]+B[1])/2);
+    const corners=[[+1,+1],[+1,-1],[-1,-1],[-1,+1]];
+    const a4=corners.map(([su,sw])=>V3.add(A,V3.add(V3.mul(u,su*h),V3.mul(w,sw*h))));
+    const b4=corners.map(([su,sw])=>V3.add(B,V3.add(V3.mul(u,su*h),V3.mul(w,sw*h))));
+    for(let k=0;k<4;k++){
+      const k2=(k+1)%4;
+      const n=V3.norm(V3.add(
+        V3.add(V3.mul(u,corners[k][0]+corners[k2][0]),V3.mul(w,corners[k][1]+corners[k2][1])),[0,0,0]));
+      pushTri(a4[k],b4[k],b4[k2],n,cc); pushTri(a4[k],b4[k2],a4[k2],n,cc);
+    }
+    // caps
+    const dn=V3.mul(d,-1);
+    pushTri(a4[0],a4[1],a4[2],dn,cc); pushTri(a4[0],a4[2],a4[3],dn,cc);
+    pushTri(b4[0],b4[2],b4[1],d,cc);  pushTri(b4[0],b4[3],b4[2],d,cc);
+  }
+  // joint octahedra
+  if(joints){
+    const r=thick*1.55;
+    const oct=[[r,0,0],[-r,0,0],[0,r,0],[0,-r,0],[0,0,r],[0,0,-r]];
+    const fcs=[[0,2,4],[2,1,4],[1,3,4],[3,0,4],[2,0,5],[1,2,5],[3,1,5],[0,3,5]];
+    for(const P of nodes){
+      const cc=edgeColor(P[1]);
+      for(const f of fcs){
+        const a=V3.add(P,oct[f[0]]),b=V3.add(P,oct[f[1]]),c=V3.add(P,oct[f[2]]);
+        const n=V3.norm(V3.cross(V3.sub(b,a),V3.sub(c,a)));
+        pushTri(a,b,c,n,cc);
+      }
+    }
+  }
+  return {pos:new Float32Array(pos),nrm:new Float32Array(nrm),col:new Float32Array(col)};
+}
+
+/* ---------------- WebGL renderer ---------------- */
+const canvas=document.getElementById("gl");
+const gl=canvas.getContext("webgl",{antialias:true,preserveDrawingBuffer:true});
+const VS=`
+attribute vec3 aPos; attribute vec3 aNrm; attribute vec3 aCol;
+uniform mat4 uProj,uView; uniform float uT;
+varying vec3 vN; varying vec3 vC; varying vec3 vW;
+void main(){
+  vN=aNrm; vC=aCol; vW=aPos;
+  gl_Position=uProj*uView*vec4(aPos,1.0);
+}`;
+const FS=`
+precision mediump float;
+varying vec3 vN; varying vec3 vC; varying vec3 vW;
+uniform vec3 uEye; uniform float uFar;
+void main(){
+  vec3 N=normalize(vN);
+  vec3 L1=normalize(vec3(0.6,0.9,0.5));
+  vec3 L2=normalize(vec3(-0.7,-0.2,-0.6));
+  vec3 Vv=normalize(uEye-vW);
+  float dif=max(dot(N,L1),0.0)*0.85+max(dot(N,L2),0.0)*0.35;
+  float spec=pow(max(dot(reflect(-L1,N),Vv),0.0),42.0)*0.5;
+  float rim=pow(1.0-max(dot(N,Vv),0.0),2.6)*0.55;
+  vec3 c=vC*(0.16+dif)+vec3(spec)+vC*rim;
+  float fog=smoothstep(uFar,uFar*0.18,length(uEye-vW));
+  gl_FragColor=vec4(c*fog,1.0);
+}`;
+function shader(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(s);return s;}
+const prog=gl.createProgram();
+gl.attachShader(prog,shader(gl.VERTEX_SHADER,VS));
+gl.attachShader(prog,shader(gl.FRAGMENT_SHADER,FS));
+gl.linkProgram(prog); gl.useProgram(prog);
+const loc={
+  aPos:gl.getAttribLocation(prog,"aPos"),
+  aNrm:gl.getAttribLocation(prog,"aNrm"),
+  aCol:gl.getAttribLocation(prog,"aCol"),
+  uProj:gl.getUniformLocation(prog,"uProj"),
+  uView:gl.getUniformLocation(prog,"uView"),
+  uEye:gl.getUniformLocation(prog,"uEye"),
+  uFar:gl.getUniformLocation(prog,"uFar")
+};
+const bufPos=gl.createBuffer(),bufNrm=gl.createBuffer(),bufCol=gl.createBuffer();
+let vertCount=0;
+gl.enable(gl.DEPTH_TEST);
+gl.clearColor(0,0,0,1);
+
+/* ---------------- state ---------------- */
+const S={count:18,twist:0,curl:0,thick:0.05,structure:0,joints:0,
+         colorMode:0,hue:0,spin:1,mutSeed:0,mutAmt:0};
+let sculpture=null; // {nodes,edges}
+
+function regenerate(){
+  const {nodes,edges,rand}=buildChain(S.count,S.mutSeed||1);
+  let d=orientAndDeform(nodes,S.twist,S.curl,S.mutAmt,rand);
+  const st=applyStructure(d,edges,S.structure);
+  sculpture=st;
+  const m=beamMesh(st.nodes,st.edges,S.thick,S.colorMode,S.hue,S.joints===1);
+  vertCount=m.pos.length/3;
+  gl.bindBuffer(gl.ARRAY_BUFFER,bufPos); gl.bufferData(gl.ARRAY_BUFFER,m.pos,gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER,bufNrm); gl.bufferData(gl.ARRAY_BUFFER,m.nrm,gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER,bufCol); gl.bufferData(gl.ARRAY_BUFFER,m.col,gl.STATIC_DRAW);
+  // fit camera distance to bounding radius (fov 38° vertical)
+  let r=0; st.nodes.forEach(p=>r=Math.max(r,V3.len(p)));
+  cam.fit=Math.max(r/Math.tan(19*Math.PI/180)*1.12,3.5);
+}
+
+/* ---------------- camera / interaction ---------------- */
+const cam={theta:0.6,phi:1.15,dist:9,fit:9,vel:0};
+let dragging=false,px=0,py=0,pinch=0;
+canvas.addEventListener("pointerdown",e=>{dragging=true;px=e.clientX;py=e.clientY;canvas.setPointerCapture(e.pointerId);});
+canvas.addEventListener("pointermove",e=>{
+  if(!dragging)return;
+  cam.theta+=(e.clientX-px)*0.0055; cam.phi-=(e.clientY-py)*0.0055;
+  cam.phi=Math.max(0.08,Math.min(Math.PI-0.08,cam.phi));
+  px=e.clientX;py=e.clientY;
+});
+addEventListener("pointerup",()=>dragging=false);
+canvas.addEventListener("wheel",e=>{e.preventDefault();
+  cam.dist*=1+Math.sign(e.deltaY)*0.07; cam.dist=Math.max(2,Math.min(40,cam.dist));},{passive:false});
+canvas.addEventListener("touchstart",e=>{if(e.touches.length===2){
+  pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);}},{passive:true});
+canvas.addEventListener("touchmove",e=>{if(e.touches.length===2){
+  const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+  cam.dist*=pinch/d; cam.dist=Math.max(2,Math.min(40,cam.dist)); pinch=d; e.preventDefault();}},{passive:false});
+
+function resize(){
+  const dpr=Math.min(devicePixelRatio||1,2);
+  canvas.width=innerWidth*dpr; canvas.height=innerHeight*dpr;
+  gl.viewport(0,0,canvas.width,canvas.height);
+}
+addEventListener("resize",resize); resize();
+
+let last=performance.now();
+function frame(now){
+  const dt=(now-last)/1000; last=now;
+  if(S.spin&&!dragging) cam.theta+=dt*0.22;
+  // ease dist toward fit on regenerate
+  cam.dist+= (cam.fit-cam.dist)*Math.min(dt*2.2,1)* (Math.abs(cam.fit-cam.dist)>0.01?1:0);
+  const eye=[
+    cam.dist*Math.sin(cam.phi)*Math.cos(cam.theta),
+    cam.dist*Math.cos(cam.phi),
+    cam.dist*Math.sin(cam.phi)*Math.sin(cam.theta)];
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  gl.uniformMatrix4fv(loc.uProj,false,new Float32Array(
+    mat4Perspective(38*Math.PI/180,canvas.width/canvas.height,0.1,120)));
+  gl.uniformMatrix4fv(loc.uView,false,new Float32Array(mat4LookAt(eye,[0,0,0],[0,1,0])));
+  gl.uniform3fv(loc.uEye,new Float32Array(eye));
+  gl.uniform1f(loc.uFar,cam.dist*2.6);
+  for(const [buf,attr] of [[bufPos,loc.aPos],[bufNrm,loc.aNrm],[bufCol,loc.aCol]]){
+    gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+    gl.enableVertexAttribArray(attr);
+    gl.vertexAttribPointer(attr,3,gl.FLOAT,false,0,0);
+  }
+  gl.drawArrays(gl.TRIANGLES,0,vertCount);
+  requestAnimationFrame(frame);
+}
+
+/* ---------------- UI wiring ---------------- */
+const $=id=>document.getElementById(id);
+function bindRange(id,out,key,fmt){
+  $(id).addEventListener("input",e=>{
+    S[key]=parseFloat(e.target.value);
+    $(out).textContent=fmt(S[key]);
+    regenerate();
+  });
+}
+bindRange("count","oCount","count",v=>v);
+bindRange("twist","oTwist","twist",v=>v+"°");
+bindRange("curl","oCurl","curl",v=>v+"°");
+bindRange("thick","oThick","thick",v=>v.toFixed(2));
+bindRange("hue","oHue","hue",v=>v+"°");
+function bindSeg(id,key,cb){
+  const seg=$(id);
+  seg.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+    seg.querySelectorAll("button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on"); S[key]=parseInt(b.dataset.v); (cb||regenerate)();
+  }));
+}
+bindSeg("segMirror","structure");
+bindSeg("segJoint","joints");
+bindSeg("segColor","colorMode");
+bindSeg("segSpin","spin",()=>{});
+$("mutate").addEventListener("click",()=>{
+  S.mutSeed=(Math.random()*1e9)>>>0; S.mutAmt=0.16; regenerate();
+});
+$("reset").addEventListener("click",()=>{
+  Object.assign(S,{count:18,twist:0,curl:0,thick:0.05,structure:0,joints:0,colorMode:0,hue:0,mutSeed:0,mutAmt:0});
+  $("count").value=18;$("oCount").textContent=18;
+  $("twist").value=0;$("oTwist").textContent="0°";
+  $("curl").value=0;$("oCurl").textContent="0°";
+  $("thick").value=0.05;$("oThick").textContent="0.05";
+  $("hue").value=0;$("oHue").textContent="0°";
+  [["segMirror",0],["segJoint",0],["segColor",0]].forEach(([id,v])=>{
+    $(id).querySelectorAll("button").forEach(b=>b.classList.toggle("on",parseInt(b.dataset.v)===v));});
+  regenerate();
+});
+$("savePng").addEventListener("click",()=>{
+  const a=document.createElement("a");
+  a.download="az4d-tetra-sculpture.png";
+  a.href=canvas.toDataURL("image/png"); a.click();
+});
+$("saveObj").addEventListener("click",()=>{
+  // export beams as boxes, matching TouchDesigner strut export style
+  let out="# AZ4D TetraBuilder export\n";
+  let vi=1;
+  const t=S.thick/2;
+  for(const [ia,ib] of sculpture.edges){
+    const A=sculpture.nodes[ia],B=sculpture.nodes[ib];
+    const d=V3.norm(V3.sub(B,A));
+    let u=Math.abs(d[1])<0.99?V3.norm(V3.cross(d,[0,1,0])):[1,0,0];
+    const w=V3.norm(V3.cross(d,u));
+    const cs=[[1,1],[1,-1],[-1,-1],[-1,1]];
+    const pts=[];
+    cs.forEach(([su,sw])=>pts.push(V3.add(A,V3.add(V3.mul(u,su*t),V3.mul(w,sw*t)))));
+    cs.forEach(([su,sw])=>pts.push(V3.add(B,V3.add(V3.mul(u,su*t),V3.mul(w,sw*t)))));
+    pts.forEach(p=>out+="v "+p[0].toFixed(6)+" "+p[1].toFixed(6)+" "+p[2].toFixed(6)+"\n");
+    const q=[[0,1,5,4],[1,2,6,5],[2,3,7,6],[3,0,4,7],[3,2,1,0],[4,5,6,7]];
+    q.forEach(f=>out+="f "+(vi+f[0])+" "+(vi+f[1])+" "+(vi+f[2])+" "+(vi+f[3])+"\n");
+    vi+=8;
+  }
+  const blob=new Blob([out],{type:"text/plain"});
+  const a=document.createElement("a");
+  a.download="az4d-tetra-sculpture.obj";
+  a.href=URL.createObjectURL(blob); a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+});
+$("tab").addEventListener("click",()=>{
+  $("panel").classList.toggle("hidden");
+  $("tab").textContent=$("panel").classList.contains("hidden")?"▸":"◂";
+});
+setTimeout(()=>{const h=$("hint");if(h)h.style.opacity=0;},7000);
+
+/* ---------------- go ---------------- */
+regenerate();
+cam.dist=cam.fit;
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
