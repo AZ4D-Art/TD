@@ -91,8 +91,8 @@
 </div>
 
 <aside id="panel">
-  <div class="ctl"><label>Tetras <output id="oCount">4</output></label>
-    <input type="range" id="count" min="1" max="60" step="1" value="4"></div>
+  <div class="ctl"><label>Tetras <output id="oCount">1</output></label>
+    <input type="range" id="count" min="1" max="60" step="1" value="1"></div>
 
   <div class="ctl"><label>Twist <output id="oTwist">0°</output></label>
     <input type="range" id="twist" min="-180" max="180" step="1" value="0"></div>
@@ -100,8 +100,8 @@
   <div class="ctl"><label>Curl <output id="oCurl">0°</output></label>
     <input type="range" id="curl" min="-90" max="90" step="1" value="0"></div>
 
-  <div class="ctl"><label>Strut <output id="oThick">0.05</output></label>
-    <input type="range" id="thick" min="0.01" max="0.22" step="0.005" value="0.05"></div>
+  <div class="ctl"><label>Strut <output id="oThick">0.01</output></label>
+    <input type="range" id="thick" min="0.01" max="0.22" step="0.005" value="0.01"></div>
 
   <div class="hr"></div>
 
@@ -420,7 +420,7 @@ gl.enable(gl.DEPTH_TEST);
 gl.clearColor(1,1,1,1);
 
 /* ---------------- state ---------------- */
-const S={count:4,twist:0,curl:0,thick:0.05,structure:0,joints:0,
+const S={count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,
          colorMode:0,hue:0,spin:1,mutSeed:0,mutAmt:0};
 let sculpture=null; // {nodes,edges}
 
@@ -519,11 +519,11 @@ $("mutate").addEventListener("click",()=>{
   S.mutSeed=(Math.random()*1e9)>>>0; S.mutAmt=0.16; regenerate();
 });
 $("reset").addEventListener("click",()=>{
-  Object.assign(S,{count:4,twist:0,curl:0,thick:0.05,structure:0,joints:0,colorMode:0,hue:0,mutSeed:0,mutAmt:0});
-  $("count").value=4;$("oCount").textContent=4;
+  Object.assign(S,{count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,colorMode:0,hue:0,mutSeed:0,mutAmt:0});
+  $("count").value=1;$("oCount").textContent=1;
   $("twist").value=0;$("oTwist").textContent="0°";
   $("curl").value=0;$("oCurl").textContent="0°";
-  $("thick").value=0.05;$("oThick").textContent="0.05";
+  $("thick").value=0.01;$("oThick").textContent="0.01";
   $("hue").value=0;$("oHue").textContent="0°";
   [["segMirror",0],["segJoint",0],["segColor",0]].forEach(([id,v])=>{
     $(id).querySelectorAll("button").forEach(b=>b.classList.toggle("on",parseInt(b.dataset.v)===v));});
