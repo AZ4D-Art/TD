@@ -71,12 +71,13 @@
   .hr{border-top:1px solid var(--line);margin:2px 0}
   .cap{font-size:8px;letter-spacing:.3em;text-transform:uppercase;color:var(--faint)}
 
-  /* ---------- toggle tab : bottom-left ---------- */
-  #tab{position:fixed;left:22px;bottom:22px;z-index:11;
+  /* ---------- reopen button : top-left, only when panel is hidden ---------- */
+  #tab{position:fixed;left:22px;top:74px;z-index:11;
     width:40px;height:40px;background:transparent;border:1px solid var(--line);border-radius:50%;
     color:var(--dim);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;
-    transition:color .3s,border-color .3s,transform .3s}
+    transition:color .3s,border-color .3s,transform .3s,opacity .4s}
   #tab:hover{color:var(--ink);border-color:var(--ink);transform:scale(1.08)}
+  #panel:not(.hidden)~#tab{opacity:0;pointer-events:none}
 
   /* ---------- footer hint ---------- */
   #hint{position:fixed;right:26px;bottom:24px;z-index:5;font-size:8.5px;letter-spacing:.26em;
@@ -86,7 +87,7 @@
     #panel{width:216px;padding:64px 16px 74px;gap:13px}
     #brand{top:18px}
     #hint{display:none}
-    #tab{left:14px;bottom:14px}
+    #tab{left:14px;top:64px}
   }
 </style>
 </head>
