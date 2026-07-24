@@ -98,6 +98,7 @@
 </div>
 
 <aside id="panel">
+  <button class="btn" id="shrink" style="padding:7px 0">◂&ensp;Hide</button>
   <div class="ctl"><label>Tetras <output id="oCount">1</output></label>
     <input type="range" id="count" min="1" max="60" step="1" value="1"></div>
 
@@ -803,6 +804,7 @@ $("saveFbx").addEventListener("click",()=>{
 'Connections:  {\n\tConnect: "OO", "Model::AZ4D_Tetra", "Model::Scene"\n}\n';
   download("az4d-tetra-sculpture.fbx",fbx);
 });
+$("shrink").addEventListener("click",()=>$("tab").click());
 $("tab").addEventListener("click",()=>{
   $("panel").classList.toggle("hidden");
   $("tab").textContent=$("panel").classList.contains("hidden")?"▸":"◂";
