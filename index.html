@@ -518,11 +518,12 @@ const canvas=document.getElementById("gl");
 const gl=canvas.getContext("webgl",{antialias:true,preserveDrawingBuffer:true});
 const VS=`
 attribute vec3 aPos; attribute vec3 aNrm; attribute vec3 aCol;
-uniform mat4 uProj,uView; uniform float uT;
+uniform mat4 uProj,uView; uniform float uT; uniform float uShiftX;
 varying vec3 vN; varying vec3 vC; varying vec3 vW;
 void main(){
   vN=aNrm; vC=aCol; vW=aPos;
   gl_Position=uProj*uView*vec4(aPos,1.0);
+  gl_Position.x+=uShiftX*gl_Position.w;   // centre in the visible area
 }`;
 const FS=`
 precision mediump float;
@@ -555,7 +556,8 @@ const loc={
   uView:gl.getUniformLocation(prog,"uView"),
   uEye:gl.getUniformLocation(prog,"uEye"),
   uFar:gl.getUniformLocation(prog,"uFar"),
-  uFlat:gl.getUniformLocation(prog,"uFlat")
+  uFlat:gl.getUniformLocation(prog,"uFlat"),
+  uShiftX:gl.getUniformLocation(prog,"uShiftX")
 };
 const bufPos=gl.createBuffer(),bufNrm=gl.createBuffer(),bufCol=gl.createBuffer();
 let vertCount=0;
@@ -607,7 +609,7 @@ function rayTri(o,d,a,b,c){
 }
 function pickFace(e){
   const rect=canvas.getBoundingClientRect();
-  const nx=((e.clientX-rect.left)/rect.width)*2-1;
+  const nx=((e.clientX-rect.left)/rect.width)*2-1-viewShift;
   const ny=1-((e.clientY-rect.top)/rect.height)*2;
   const eye=[cam.dist*Math.sin(cam.phi)*Math.cos(cam.theta),
              cam.dist*Math.cos(cam.phi),
@@ -654,9 +656,13 @@ function resize(){
 addEventListener("resize",resize); resize();
 
 let last=performance.now();
+let viewShift=0;    // NDC x-offset so the scene centres in the visible area
 function frame(now){
   const dt=(now-last)/1000; last=now;
   if(S.spin&&!dragging) cam.theta+=dt*0.22;
+  const pEl=document.getElementById("panel");
+  const tShift=pEl.classList.contains("hidden")?0:pEl.offsetWidth/innerWidth;
+  viewShift+=(tShift-viewShift)*Math.min(dt*6,1);
   // ease dist toward fit on regenerate
   /* zoom stays where the user sets it — no auto-return to fit */
   const eye=[
@@ -675,6 +681,7 @@ function frame(now){
     gl.vertexAttribPointer(attr,3,gl.FLOAT,false,0,0);
   }
   gl.uniform1f(loc.uFlat,S.wire?1:0);
+  gl.uniform1f(loc.uShiftX,viewShift);
   gl.drawArrays(S.wire?gl.LINES:gl.TRIANGLES,0,vertCount);
   requestAnimationFrame(frame);
 }
