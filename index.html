@@ -222,9 +222,11 @@ function buildFromPlan(plan, jitterSeed){
   ];
   const tets=[[0,1,2,3]];
   let cur=[0,1,2,3];                 // node indices of current tetra
-  let oldest=0;                      // rotating pointer for auto growth
+  // auto growth = Boerdijk–Coxeter tetrahelix: always reflect the OLDEST
+  // vertex of the current tetra through its opposite face. `cur` is kept
+  // ordered oldest -> newest, so the oldest is always slot 0.
   for(const step of plan){
-    let baseTet=cur, slot=oldest%4;
+    let baseTet=cur, slot=0;
     if(step&&step.tet>=0&&step.tet<tets.length){baseTet=tets[step.tet];slot=step.slot;}
     const ref=baseTet[slot];
     const face=baseTet.filter((_,k)=>k!==slot);
@@ -235,7 +237,6 @@ function buildFromPlan(plan, jitterSeed){
     nodes.push(V3.sub(nodes[ref],V3.mul(n,2*d)));
     cur=[face[0],face[1],face[2],nodes.length-1];
     tets.push([...cur]);
-    oldest++;
   }
   // unique edges from tets
   const eset=new Set(), edges=[];
