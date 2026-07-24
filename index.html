@@ -21,19 +21,19 @@
   #brand h1{font-size:15px;font-weight:300;letter-spacing:.55em;text-indent:.55em}
   #brand p{margin-top:6px;font-size:9px;letter-spacing:.34em;text-indent:.34em;color:var(--dim)}
 
-  /* ---------- panel : transparent bottom bar ---------- */
-  #panel{position:fixed;left:0;right:0;bottom:0;z-index:10;
-    background:transparent;border-top:1px solid var(--line);
-    padding:16px 26px 18px;
-    display:flex;flex-wrap:wrap;gap:14px 26px;align-items:flex-end;justify-content:center;
+  /* ---------- panel : transparent left column ---------- */
+  #panel{position:fixed;top:0;left:0;bottom:0;width:250px;z-index:10;
+    background:transparent;border-right:1px solid var(--line);
+    padding:74px 22px 80px;
+    display:flex;flex-direction:column;gap:16px;overflow-y:auto;
     transition:transform .55s cubic-bezier(.19,1,.22,1),opacity .45s}
-  #panel.hidden{transform:translateY(105%);opacity:0;pointer-events:none}
-  #panel::-webkit-scrollbar{height:0}
-  #panel .ctl{flex:0 0 148px;min-width:148px}
-  #panel .ctl:has(.seg){flex:0 0 210px;min-width:210px}
+  #panel.hidden{transform:translateX(-105%);opacity:0;pointer-events:none}
+  #panel::-webkit-scrollbar{width:0}
+  #panel .ctl{flex:none;min-width:0}
+  #panel .ctl:has(.seg){flex:none;min-width:0}
   #panel .hr{display:none}
   #panel>.cap{display:none}
-  #panel>.btn{flex:0 0 150px;width:auto}
+  #panel>.btn{flex:none;width:100%}
 
   .ctl label{display:flex;justify-content:space-between;align-items:baseline;
     font-size:9px;letter-spacing:.28em;text-transform:uppercase;color:var(--dim);margin-bottom:9px}
@@ -60,7 +60,7 @@
   .seg button.on{background:var(--ink);color:#fff}
   .seg button:not(.on):hover{color:var(--ink)}
 
-  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:0 0 168px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:none}
   .btn{display:block;width:100%;padding:11px 0;background:none;border:1px solid var(--line);
     color:var(--dim);cursor:pointer;font-family:inherit;font-size:9px;font-weight:300;
     letter-spacing:.26em;text-transform:uppercase;transition:all .35s}
@@ -71,23 +71,22 @@
   .hr{border-top:1px solid var(--line);margin:2px 0}
   .cap{font-size:8px;letter-spacing:.3em;text-transform:uppercase;color:var(--faint)}
 
-  /* ---------- toggle tab : bottom-right ---------- */
-  #tab{position:fixed;right:22px;bottom:22px;z-index:11;
+  /* ---------- toggle tab : bottom-left ---------- */
+  #tab{position:fixed;left:22px;bottom:22px;z-index:11;
     width:40px;height:40px;background:transparent;border:1px solid var(--line);border-radius:50%;
     color:var(--dim);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;
     transition:color .3s,border-color .3s,transform .3s}
   #tab:hover{color:var(--ink);border-color:var(--ink);transform:scale(1.08)}
 
   /* ---------- footer hint ---------- */
-  #hint{position:fixed;left:26px;top:30px;z-index:5;font-size:8.5px;letter-spacing:.26em;
+  #hint{position:fixed;right:26px;bottom:24px;z-index:5;font-size:8.5px;letter-spacing:.26em;
     text-transform:uppercase;color:var(--faint);pointer-events:none;transition:opacity 1s}
 
   @media(max-width:640px){
-    #panel{padding:12px 16px 14px;gap:10px 16px;max-height:46vh;overflow-y:auto}
-    #panel .ctl{flex:1 1 130px;min-width:130px}
+    #panel{width:216px;padding:64px 16px 74px;gap:13px}
     #brand{top:18px}
     #hint{display:none}
-    #tab{right:14px;bottom:14px}
+    #tab{left:14px;bottom:14px}
   }
 </style>
 </head>
@@ -176,7 +175,7 @@
   <button class="btn" id="saveFbx">Export .FBX</button>
   <p class="cap" style="line-height:1.9">Drag to orbit<br>Scroll / pinch to zoom</p>
 </aside>
-<button id="tab" title="toggle panel">▾</button>
+<button id="tab" title="toggle panel">◂</button>
 
 <div id="hint">Design your own tetra sculpture</div>
 
@@ -305,11 +304,11 @@ function orientAndDeform(nodes, twistDeg, curlDeg, mutAmt, rand){
     }
     return [nx,ny,z];
   });
-  // recentre: x/z by centroid, y by bounding-box middle (keeps base level)
-  const c2=[0,0]; let y0=1e9,y1=-1e9;
-  out.forEach(p=>{c2[0]+=p[0];c2[1]+=p[2];y0=Math.min(y0,p[1]);y1=Math.max(y1,p[1]);});
-  const ymid=(y0+y1)/2;
-  out=out.map(p=>[p[0]-c2[0]/N,p[1]-ymid,p[2]-c2[1]/N]);
+  // recentre: x/z by centroid; the FLOOR (lowest point) sits at y=0,
+  // which the camera holds at the middle of the screen
+  const c2=[0,0]; let y0=1e9;
+  out.forEach(p=>{c2[0]+=p[0];c2[1]+=p[2];y0=Math.min(y0,p[1]);});
+  out=out.map(p=>[p[0]-c2[0]/N,p[1]-y0,p[2]-c2[1]/N]);
   return out;
 }
 
@@ -806,7 +805,7 @@ $("saveFbx").addEventListener("click",()=>{
 });
 $("tab").addEventListener("click",()=>{
   $("panel").classList.toggle("hidden");
-  $("tab").textContent=$("panel").classList.contains("hidden")?"▴":"▾";
+  $("tab").textContent=$("panel").classList.contains("hidden")?"▸":"◂";
 });
 setTimeout(()=>{const h=$("hint");if(h)h.style.opacity=0;},7000);
 
