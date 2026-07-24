@@ -122,10 +122,14 @@
   <div class="hr"></div>
 
   <div class="ctl"><label class="cap" style="margin-bottom:9px">Structure</label>
-    <div class="seg" id="segMirror">
+    <div class="seg" id="segMirror" style="margin-bottom:8px">
       <button data-v="0" class="on">Single</button>
       <button data-v="1">Mirror</button>
       <button data-v="2">Star</button>
+    </div>
+    <div class="seg" id="segPol">
+      <button data-v="0" class="on">Mirror +</button>
+      <button data-v="1">Mirror −</button>
     </div></div>
 
   <div class="ctl"><label class="cap" style="margin-bottom:9px">Joints</label>
@@ -309,14 +313,19 @@ function orientAndDeform(nodes, twistDeg, curlDeg, mutAmt, rand){
 }
 
 /* mirror modes: 0 single | 1 mirror (y -> -y copy) | 2 star (3 copies rot 120°) */
-function applyStructure(nodes, edges, mode, tets){
+function applyStructure(nodes, edges, mode, tets, pol){
   if(mode===0) return {nodes,edges,tets};
   const N=nodes.length;
   let outN=[...nodes.map(p=>[...p])], outE=[...edges.map(e=>[...e])],
       outT=[...tets.map(t=>[...t])];
   if(mode===1){
-    let ymin=1e9; nodes.forEach(p=>ymin=Math.min(ymin,p[1]));
-    nodes.forEach(p=>outN.push([p[0],2*ymin-p[1]-0.001,p[2]]));
+    // mirror plane by polarity:
+    //  + : the seed's base-face plane -> mirrored copy lines up flush
+    //  - : the structure's top bound  -> mirrored copy stacked above
+    let yp, off;
+    if(pol===1){let ymax=-1e9;nodes.forEach(p=>ymax=Math.max(ymax,p[1]));yp=ymax;off=0.001;}
+    else{yp=(nodes[0][1]+nodes[1][1]+nodes[2][1])/3;off=-0.001;}
+    nodes.forEach(p=>outN.push([p[0],2*yp-p[1]+off,p[2]]));
     edges.forEach(e=>outE.push([e[0]+N,e[1]+N]));
     tets.forEach(t=>outT.push([t[0]+N,t[1]+N,t[2]+N,t[3]+N]));
   } else {
@@ -546,7 +555,7 @@ gl.clearColor(1,1,1,1);
 
 /* ---------------- state ---------------- */
 const S={count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,
-         colorMode:0,hue:0,spin:1,mutSeed:0,mutAmt:0,wire:0};
+         colorMode:0,hue:0,spin:1,mutSeed:0,mutAmt:0,wire:0,mirrorPol:0};
 let sculpture=null; // {nodes,edges,tets}
 let plan=[];        // growth history: null = auto step, {tet,slot} = picked face
 let opStack=[];     // sizes of past Add operations (for Undo)
@@ -556,7 +565,7 @@ let pickFaces=[];   // clickable faces with resolved positions
 function regenerate(){
   const base=buildFromPlan(plan,S.mutSeed||1);
   let d=orientAndDeform(base.nodes,S.twist,S.curl,S.mutAmt,base.rand);
-  const st=applyStructure(d,base.edges,S.structure,base.tets);
+  const st=applyStructure(d,base.edges,S.structure,base.tets,S.mirrorPol);
   st.baseTetCount=base.tets.length;
   sculpture=st;
   const faceList=computeFaces(st.nodes,st.tets);
@@ -713,6 +722,7 @@ function bindSeg(id,key,cb){
   }));
 }
 bindSeg("segMirror","structure");
+bindSeg("segPol","mirrorPol");
 bindSeg("segJoint","joints");
 bindSeg("segWire","wire");
 bindSeg("segColor","colorMode");
@@ -721,14 +731,14 @@ $("mutate").addEventListener("click",()=>{
   S.mutSeed=(Math.random()*1e9)>>>0; S.mutAmt=0.16; regenerate();
 });
 $("reset").addEventListener("click",()=>{
-  Object.assign(S,{count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,colorMode:0,hue:0,mutSeed:0,mutAmt:0,wire:0});
+  Object.assign(S,{count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,colorMode:0,hue:0,mutSeed:0,mutAmt:0,wire:0,mirrorPol:0});
   plan=[]; opStack=[]; selFace=null; $("addN").value=1;
   $("count").value=1;$("oCount").textContent=1;
   $("twist").value=0;$("oTwist").textContent="0°";
   $("curl").value=0;$("oCurl").textContent="0°";
   $("thick").value=0.01;$("oThick").textContent="0.01";
   $("hue").value=0;$("oHue").textContent="0°";
-  [["segMirror",0],["segJoint",0],["segColor",0],["segWire",0]].forEach(([id,v])=>{
+  [["segMirror",0],["segPol",0],["segJoint",0],["segColor",0],["segWire",0]].forEach(([id,v])=>{
     $(id).querySelectorAll("button").forEach(b=>b.classList.toggle("on",parseInt(b.dataset.v)===v));});
   regenerate();
 });
