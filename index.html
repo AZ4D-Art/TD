@@ -452,6 +452,34 @@ function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, faceList, tet
           pushTri(Bp,r2.railB,r1.railB,d,cc);
         }
       }
+      // corner floors: close the small polygon of mitred corner points
+      // that ring each vertex on the inside of the tetra corners
+      const vmap={}, vnrm={};
+      for(const f of bFaces){
+        for(let k=0;k<3;k++){
+          const i=f.idx[k];
+          (vmap[i]=vmap[i]||[]).push(f._II[k]);
+          const a=vnrm[i]||(vnrm[i]=[0,0,0]);
+          a[0]+=f._n[0];a[1]+=f._n[1];a[2]+=f._n[2];
+        }
+      }
+      for(const i in vmap){
+        const pts=vmap[i];
+        if(pts.length<3) continue;
+        const V=nodes[i];
+        const nA=V3.norm(vnrm[i]);                 // outward at the vertex
+        // order the ring points by angle around the vertex normal
+        let u=Math.abs(nA[1])<0.99?V3.norm(V3.cross(nA,[0,1,0])):[1,0,0];
+        const w=V3.cross(nA,u);
+        const ordered=pts.map(p=>{
+          const r=V3.sub(p,V);
+          return {p,a:Math.atan2(V3.dot(r,w),V3.dot(r,u))};
+        }).sort((x,y)=>x.a-y.a).map(o=>o.p);
+        const nf=V3.mul(nA,-1);                    // floor faces the interior
+        const cc=edgeColor(V[1]);
+        for(let k=1;k<ordered.length-1;k++)
+          pushTri(ordered[0],ordered[k],ordered[k+1],nf,cc);
+      }
     }
   } else {
     // fallback: square beams per edge (no tetra adjacency available)
