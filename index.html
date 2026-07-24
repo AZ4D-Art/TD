@@ -128,8 +128,9 @@
       <button data-v="2">Star</button>
     </div>
     <div class="seg" id="segPol">
-      <button data-v="0" class="on">Mirror +</button>
-      <button data-v="1">Mirror −</button>
+      <button data-v="0" class="on">Mir +</button>
+      <button data-v="1">Mir −</button>
+      <button data-v="2">Floor</button>
     </div></div>
 
   <div class="ctl"><label class="cap" style="margin-bottom:9px">Joints</label>
@@ -320,12 +321,19 @@ function applyStructure(nodes, edges, mode, tets, pol){
       outT=[...tets.map(t=>[...t])];
   if(mode===1){
     // mirror plane by polarity:
-    //  + : the seed's base-face plane -> mirrored copy lines up flush
-    //  - : the structure's top bound  -> mirrored copy stacked above
-    let yp, off;
-    if(pol===1){let ymax=-1e9;nodes.forEach(p=>ymax=Math.max(ymax,p[1]));yp=ymax;off=0.001;}
-    else{yp=(nodes[0][1]+nodes[1][1]+nodes[2][1])/3;off=-0.001;}
-    nodes.forEach(p=>outN.push([p[0],2*yp-p[1]+off,p[2]]));
+    //  +     : the seed's base-face plane -> mirrored copy lines up flush
+    //  -     : the structure's top bound  -> mirrored copy stacked above
+    //  floor : a vertical plane at the negative-x bound -> mirrored copy
+    //          stands BESIDE the original on the same floor
+    if(pol===2){
+      let xmin=1e9; nodes.forEach(p=>xmin=Math.min(xmin,p[0]));
+      nodes.forEach(p=>outN.push([2*xmin-p[0]-0.001,p[1],p[2]]));
+    }else{
+      let yp, off;
+      if(pol===1){let ymax=-1e9;nodes.forEach(p=>ymax=Math.max(ymax,p[1]));yp=ymax;off=0.001;}
+      else{yp=(nodes[0][1]+nodes[1][1]+nodes[2][1])/3;off=-0.001;}
+      nodes.forEach(p=>outN.push([p[0],2*yp-p[1]+off,p[2]]));
+    }
     edges.forEach(e=>outE.push([e[0]+N,e[1]+N]));
     tets.forEach(t=>outT.push([t[0]+N,t[1]+N,t[2]+N,t[3]+N]));
   } else {
