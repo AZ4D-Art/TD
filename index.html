@@ -131,10 +131,14 @@
       <button data-v="1">Mirror</button>
       <button data-v="2">Star</button>
     </div>
-    <div class="seg" id="segPol">
+    <div class="seg" id="segPol" style="margin-bottom:8px">
       <button data-v="0" class="on">Mir +</button>
       <button data-v="1">Mir −</button>
       <button data-v="2">Floor</button>
+    </div>
+    <div class="seg" id="segMlock">
+      <button data-v="0" class="on">Mir Tilted</button>
+      <button data-v="1">Mir Vertical</button>
     </div></div>
 
   <div class="ctl"><label class="cap" style="margin-bottom:9px">Joints</label>
@@ -348,7 +352,7 @@ function orientAndDeform(nodes, twistDeg, curlDeg, mutAmt, rand, dir){
 }
 
 /* mirror modes: 0 single | 1 mirror (y -> -y copy) | 2 star (3 copies rot 120°) */
-function applyStructure(nodes, edges, mode, tets, pol){
+function applyStructure(nodes, edges, mode, tets, pol, lock){
   if(mode===0) return {nodes,edges,tets};
   const N=nodes.length;
   let outN=[...nodes.map(p=>[...p])], outE=[...edges.map(e=>[...e])],
@@ -366,17 +370,28 @@ function applyStructure(nodes, edges, mode, tets, pol){
       let ymax=-1e9; nodes.forEach(p=>ymax=Math.max(ymax,p[1]));
       nodes.forEach(p=>outN.push([p[0],2*ymax-p[1]+0.001,p[2]]));
     }else{
-      // Mirror +: reflect across the seed's base FACE plane itself, in
-      // whatever orientation it is — mirrored tetra planes stay flush
+      // Mirror +: across the seed's base FACE plane — flush in any pose
       const A=nodes[0];
       const pn=V3.norm(V3.cross(V3.sub(nodes[1],A),V3.sub(nodes[2],A)));
       const cN=[0,0,0]; nodes.forEach(p=>{cN[0]+=p[0];cN[1]+=p[1];cN[2]+=p[2];});
       const sgn=Math.sign(V3.dot(V3.sub([cN[0]/N,cN[1]/N,cN[2]/N],A),pn))||1;
-      nodes.forEach(p=>{
-        const d=V3.dot(V3.sub(p,A),pn);
-        const q=V3.sub(p,V3.mul(pn,2*d));
-        outN.push(V3.sub(q,V3.mul(pn,sgn*0.001)));
-      });
+      let u=V3.cross(pn,[0,1,0]);
+      if(lock===1&&V3.len(u)>1e-4){
+        // Mir Vertical: 180° turn about the base plane's horizontal line —
+        // contact stays flush in the plane AND the copy hangs vertical
+        u=V3.norm(u);
+        nodes.forEach(p=>{
+          const d=V3.sub(p,A);
+          const q=V3.add(A,V3.sub(V3.mul(u,2*V3.dot(d,u)),d));
+          outN.push(V3.sub(q,V3.mul(pn,sgn*0.001)));
+        });
+      }else{
+        nodes.forEach(p=>{
+          const d=V3.dot(V3.sub(p,A),pn);
+          const q=V3.sub(p,V3.mul(pn,2*d));
+          outN.push(V3.sub(q,V3.mul(pn,sgn*0.001)));
+        });
+      }
     }
     edges.forEach(e=>outE.push([e[0]+N,e[1]+N]));
     tets.forEach(t=>outT.push([t[0]+N,t[1]+N,t[2]+N,t[3]+N]));
@@ -609,7 +624,7 @@ gl.clearColor(1,1,1,1);
 
 /* ---------------- state ---------------- */
 const S={count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,
-         colorMode:0,hue:0,spin:1,mutSeed:0,mutAmt:0,wire:0,mirrorPol:0,dir:0};
+         colorMode:0,hue:0,spin:1,mutSeed:0,mutAmt:0,wire:0,mirrorPol:0,dir:0,mirLock:0};
 let sculpture=null; // {nodes,edges,tets}
 let plan=[];        // growth history: null = auto step, {tet,slot} = picked face
 let opStack=[];     // sizes of past Add operations (for Undo)
@@ -619,7 +634,7 @@ let pickFaces=[];   // clickable faces with resolved positions
 function regenerate(){
   const base=buildFromPlan(plan,S.mutSeed||1);
   let d=orientAndDeform(base.nodes,S.twist,S.curl,S.mutAmt,base.rand,S.dir);
-  const st=applyStructure(d,base.edges,S.structure,base.tets,S.mirrorPol);
+  const st=applyStructure(d,base.edges,S.structure,base.tets,S.mirrorPol,S.mirLock);
   st.baseTetCount=base.tets.length;
   sculpture=st;
   const faceList=computeFaces(st.nodes,st.tets);
@@ -774,6 +789,7 @@ function bindSeg(id,key,cb){
 }
 bindSeg("segMirror","structure");
 bindSeg("segPol","mirrorPol");
+bindSeg("segMlock","mirLock");
 bindSeg("segJoint","joints");
 bindSeg("segWire","wire");
 bindSeg("segColor","colorMode");
@@ -782,13 +798,13 @@ $("mutate").addEventListener("click",()=>{
   S.mutSeed=(Math.random()*1e9)>>>0; S.mutAmt=0.16; regenerate();
 });
 $("reset").addEventListener("click",()=>{
-  Object.assign(S,{count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,colorMode:0,hue:0,mutSeed:0,mutAmt:0,wire:0,mirrorPol:0,dir:0});
+  Object.assign(S,{count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,colorMode:0,hue:0,mutSeed:0,mutAmt:0,wire:0,mirrorPol:0,dir:0,mirLock:0});
   plan=[]; opStack=[]; selFace=null; $("addN").value=1;
   $("twist").value=0;$("oTwist").textContent="0°";
   $("curl").value=0;$("oCurl").textContent="0°";
   $("thick").value=0.01;$("oThick").textContent="0.01";
   $("hue").value=0;$("oHue").textContent="0°";
-  [["segMirror",0],["segPol",0],["segJoint",0],["segColor",0],["segWire",0],["segDir",0]].forEach(([id,v])=>{
+  [["segMirror",0],["segPol",0],["segMlock",0],["segJoint",0],["segColor",0],["segWire",0],["segDir",0]].forEach(([id,v])=>{
     $(id).querySelectorAll("button").forEach(b=>b.classList.toggle("on",parseInt(b.dataset.v)===v));});
   regenerate();
 });
