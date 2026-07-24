@@ -365,98 +365,92 @@ function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, faceList, tet
     if(wire) for(const [ia,ib] of edges)
       pushLine(nodes[ia],nodes[ib],edgeColor((nodes[ia][1]+nodes[ib][1])/2));
     const m=thick*1.4, depth=thick*1.1;
-    // SOLID TRIANGULAR STRUTS: one prism per boundary edge. Cross-section =
-    // apex on the edge with a leg lying in each adjacent face plane, closed
-    // by a single flat base — just two connecting planes plus the base.
-    // Rails end at the faces' mitred corner points so struts meet flush.
-    const bFaces=faceList.filter(f=>f.owners===1);
-    for(const f of bFaces){
-      const O=f.idx.map(i=>nodes[i]);
-      const fc=V3.mul(V3.add(V3.add(O[0],O[1]),O[2]),1/3);
-      const nRaw=V3.norm(V3.cross(V3.sub(O[1],O[0]),V3.sub(O[2],O[0])));
-      let n=nRaw;
-      if(V3.dot(n,V3.sub(fc,f.tc))<0)n=V3.mul(n,-1);       // outward from tet
-      // mitred inset corners (rail endpoints)
-      const I=[0,1,2].map(k=>{
-        const P=O[k],Q=O[(k+1)%3],R=O[(k+2)%3];
-        const d1=V3.norm(V3.sub(Q,P)),d2=V3.norm(V3.sub(R,P));
-        const bis=V3.norm(V3.add(d1,d2));
-        const sh=Math.sqrt(Math.max((1-V3.dot(d1,d2))/2,0.01));
-        return V3.add(P,V3.mul(bis,m/sh));
-      });
-      const collapsed=V3.dot(V3.cross(V3.sub(I[1],I[0]),V3.sub(I[2],I[0])),nRaw)<=0;
-      f._n=n; f._fc=fc; f._II=collapsed?[fc,fc,fc]:I; f._collapsed=collapsed;
-      if(wire&&!collapsed){
-        const cc=(sel&&f.tet===sel.tet&&f.slot===sel.slot)?ACCENT:edgeColor(fc[1]);
-        pushLine(f._II[0],f._II[1],cc);pushLine(f._II[1],f._II[2],cc);pushLine(f._II[2],f._II[0],cc);
+    // FULL TETRAS: every tetra is built complete and identical to the seed —
+    // all four faces framed, all six triangular struts, all four corners
+    // closed. Added tetras simply sit flush plane-to-plane; the coincident
+    // strips on shared faces are drawn once to avoid z-fighting.
+    const faceInfo=[]; const tcArr=[];
+    for(let ti=0;ti<tets.length;ti++){
+      const t=tets[ti];
+      const tc=V3.mul(V3.add(V3.add(nodes[t[0]],nodes[t[1]]),V3.add(nodes[t[2]],nodes[t[3]])),0.25);
+      tcArr.push(tc);
+      for(const c of [[1,2,3,0],[0,2,3,1],[0,1,3,2],[0,1,2,3]]){
+        const idx=[t[c[0]],t[c[1]],t[c[2]]], slot=c[3];
+        const O=idx.map(i=>nodes[i]);
+        const fc=V3.mul(V3.add(V3.add(O[0],O[1]),O[2]),1/3);
+        const nRaw=V3.norm(V3.cross(V3.sub(O[1],O[0]),V3.sub(O[2],O[0])));
+        let n=nRaw;
+        if(V3.dot(n,V3.sub(fc,tc))<0)n=V3.mul(n,-1);        // outward from tet
+        const I=[0,1,2].map(k=>{
+          const P=O[k],Q=O[(k+1)%3],R=O[(k+2)%3];
+          const d1=V3.norm(V3.sub(Q,P)),d2=V3.norm(V3.sub(R,P));
+          const bis=V3.norm(V3.add(d1,d2));
+          const sh=Math.sqrt(Math.max((1-V3.dot(d1,d2))/2,0.01));
+          return V3.add(P,V3.mul(bis,m/sh));
+        });
+        const collapsed=V3.dot(V3.cross(V3.sub(I[1],I[0]),V3.sub(I[2],I[0])),nRaw)<=0;
+        faceInfo.push({ti,slot,idx,O,fc,n,II:collapsed?[fc,fc,fc]:I,collapsed});
       }
     }
-    if(!wire){
-      // group the two adjacent boundary faces of every edge
-      const emap={};
-      for(const f of bFaces){
-        for(let k=0;k<3;k++){
-          const k2=(k+1)%3;
-          const a=f.idx[k], b=f.idx[k2];
-          const key=Math.min(a,b)+"_"+Math.max(a,b);
-          (emap[key]=emap[key]||[]).push(
-            a<b?{f,railA:f._II[k],railB:f._II[k2],a,b}
-               :{f,railA:f._II[k2],railB:f._II[k],a:b,b:a});
+    if(wire){
+      const seen={};
+      for(const f of faceInfo){
+        const k=f.idx.slice().sort((a,b)=>a-b).join("_");
+        if(seen[k])continue; seen[k]=1;
+        if(!f.collapsed){
+          const cc=(sel&&f.ti===sel.tet&&f.slot===sel.slot)?ACCENT:edgeColor(f.fc[1]);
+          pushLine(f.II[0],f.II[1],cc);pushLine(f.II[1],f.II[2],cc);pushLine(f.II[2],f.II[0],cc);
         }
       }
-      for(const key in emap){
-        const recs=emap[key];
-        const a=recs[0].a, b=recs[0].b;
-        const A=nodes[a], Bp=nodes[b];
-        const d=V3.norm(V3.sub(Bp,A));
-        const cc=edgeColor((A[1]+Bp[1])/2);
-        // the two planes meeting at the outer edge (in the face planes)
-        for(const r of recs){
-          const f=r.f;
-          const ccf=(sel&&f.tet===sel.tet&&f.slot===sel.slot)?ACCENT:edgeColor(f._fc[1]);
-          pushTri(A,Bp,r.railB,f._n,ccf); pushTri(A,r.railB,r.railA,f._n,ccf);
+    } else {
+      const stripSeen={};
+      for(let ti=0;ti<tets.length;ti++){
+        const t=tets[ti];
+        const fs=faceInfo.slice(ti*4,ti*4+4);
+        // six struts, each formed by this tetra's two faces at the edge
+        for(let a=0;a<4;a++)for(let b=a+1;b<4;b++){
+          const na=t[a], nb2=t[b];
+          const A=nodes[na], Bp=nodes[nb2];
+          const d=V3.norm(V3.sub(Bp,A));
+          const cc=edgeColor((A[1]+Bp[1])/2);
+          const rails=[];
+          for(const f of fs){
+            const ka=f.idx.indexOf(na), kb=f.idx.indexOf(nb2);
+            if(ka<0||kb<0) continue;
+            const railA=f.II[ka], railB=f.II[kb];
+            rails.push({railA,railB});
+            // strip in this face plane — dedupe shared-face strips
+            const fk=f.idx.slice().sort((x,y)=>x-y).join("_")+"|"+Math.min(na,nb2)+"_"+Math.max(na,nb2);
+            if(!stripSeen[fk]){
+              stripSeen[fk]=1;
+              const ccf=(sel&&f.ti===sel.tet&&f.slot===sel.slot)?ACCENT:edgeColor(f.fc[1]);
+              pushTri(A,Bp,railB,f.n,ccf); pushTri(A,railB,railA,f.n,ccf);
+            }
+          }
+          if(rails.length===2){
+            const r1=rails[0], r2=rails[1];
+            // single flat base closing the triangular section
+            const baseMid=V3.mul(V3.add(V3.add(r1.railA,r1.railB),V3.add(r2.railA,r2.railB)),0.25);
+            const edgeMid=V3.mul(V3.add(A,Bp),0.5);
+            let nb=V3.norm(V3.cross(V3.sub(r1.railB,r1.railA),V3.sub(r2.railA,r1.railA)));
+            if(V3.dot(nb,V3.sub(baseMid,edgeMid))<0)nb=V3.mul(nb,-1);
+            pushTri(r1.railA,r1.railB,r2.railB,nb,cc); pushTri(r1.railA,r2.railB,r2.railA,nb,cc);
+            // end caps at the vertices
+            const dn=V3.mul(d,-1);
+            pushTri(A,r1.railA,r2.railA,dn,cc);
+            pushTri(Bp,r2.railB,r1.railB,d,cc);
+          }
         }
-        if(recs.length===2){
-          const r1=recs[0], r2=recs[1];
-          // single flat base closing the triangular section
-          const baseMid=V3.mul(V3.add(V3.add(r1.railA,r1.railB),V3.add(r2.railA,r2.railB)),0.25);
-          const edgeMid=V3.mul(V3.add(A,Bp),0.5);
-          let nb=V3.norm(V3.cross(V3.sub(r1.railB,r1.railA),V3.sub(r2.railA,r1.railA)));
-          if(V3.dot(nb,V3.sub(baseMid,edgeMid))<0)nb=V3.mul(nb,-1);
-          pushTri(r1.railA,r1.railB,r2.railB,nb,cc); pushTri(r1.railA,r2.railB,r2.railA,nb,cc);
-          // end caps at the vertices
-          const dn=V3.mul(d,-1);
-          pushTri(A,r1.railA,r2.railA,dn,cc);
-          pushTri(Bp,r2.railB,r1.railB,d,cc);
+        // corner floors: each tetra closes its own four corners
+        for(let a=0;a<4;a++){
+          const vi=t[a], V=nodes[vi];
+          const pts=[];
+          for(const f of fs){const k=f.idx.indexOf(vi); if(k>=0) pts.push(f.II[k]);}
+          if(pts.length===3){
+            const nf=V3.norm(V3.sub(tcArr[ti],V));           // faces the interior
+            pushTri(pts[0],pts[1],pts[2],nf,edgeColor(V[1]));
+          }
         }
-      }
-      // corner floors: close the small polygon of mitred corner points
-      // that ring each vertex on the inside of the tetra corners
-      const vmap={}, vnrm={};
-      for(const f of bFaces){
-        for(let k=0;k<3;k++){
-          const i=f.idx[k];
-          (vmap[i]=vmap[i]||[]).push(f._II[k]);
-          const a=vnrm[i]||(vnrm[i]=[0,0,0]);
-          a[0]+=f._n[0];a[1]+=f._n[1];a[2]+=f._n[2];
-        }
-      }
-      for(const i in vmap){
-        const pts=vmap[i];
-        if(pts.length<3) continue;
-        const V=nodes[i];
-        const nA=V3.norm(vnrm[i]);                 // outward at the vertex
-        // order the ring points by angle around the vertex normal
-        let u=Math.abs(nA[1])<0.99?V3.norm(V3.cross(nA,[0,1,0])):[1,0,0];
-        const w=V3.cross(nA,u);
-        const ordered=pts.map(p=>{
-          const r=V3.sub(p,V);
-          return {p,a:Math.atan2(V3.dot(r,w),V3.dot(r,u))};
-        }).sort((x,y)=>x.a-y.a).map(o=>o.p);
-        const nf=V3.mul(nA,-1);                    // floor faces the interior
-        const cc=edgeColor(V[1]);
-        for(let k=1;k<ordered.length-1;k++)
-          pushTri(ordered[0],ordered[k],ordered[k+1],nf,cc);
       }
     }
   } else {
