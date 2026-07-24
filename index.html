@@ -100,8 +100,11 @@
 
 <aside id="panel">
   <button class="btn" id="shrink" style="padding:7px 0">◂&ensp;Hide</button>
-  <div class="ctl"><label>Tetras <output id="oCount">1</output></label>
-    <input type="range" id="count" min="1" max="60" step="1" value="1"></div>
+  <div class="ctl"><label class="cap" style="margin-bottom:9px">Direction</label>
+    <div class="seg" id="segDir">
+      <button data-v="0" class="on">Natural</button>
+      <button data-v="1">Vertical</button>
+    </div></div>
 
   <div class="ctl"><label class="cap" style="margin-bottom:9px">Add tetras</label>
     <div class="row2" style="grid-template-columns:48px 1fr 1fr">
@@ -277,13 +280,43 @@ function computeFaces(nodes,tets){
    The BC helix grows roughly along one direction; compute centroid
    line via first/last tetra centroids, re-orient to Y axis, then
    apply twist (rot about Y per unit y) and curl (bend about Z).   */
-function orientAndDeform(nodes, twistDeg, curlDeg, mutAmt, rand){
+function orientAndDeform(nodes, twistDeg, curlDeg, mutAmt, rand, dir){
   const N=nodes.length;
-  // keep the built orientation (seed base flat on the ground plane);
-  // recentre horizontally only
   const c=[0,0,0]; nodes.forEach(p=>{c[0]+=p[0];c[1]+=p[1];c[2]+=p[2];});
   c[0]/=N;c[1]/=N;c[2]/=N;
-  let out=nodes.map(p=>[p[0]-c[0],p[1],p[2]-c[2]]);
+  let out;
+  if(dir===1&&N>4){
+    // VERTICAL: align the chain's principal axis with Y so it stands upright
+    let cov=[[0,0,0],[0,0,0],[0,0,0]];
+    nodes.forEach(p=>{const d=V3.sub(p,c);
+      for(let i=0;i<3;i++)for(let j=0;j<3;j++)cov[i][j]+=d[i]*d[j];});
+    let v=[1,0.3,0.2];
+    for(let k=0;k<24;k++){
+      v=[cov[0][0]*v[0]+cov[0][1]*v[1]+cov[0][2]*v[2],
+         cov[1][0]*v[0]+cov[1][1]*v[1]+cov[1][2]*v[2],
+         cov[2][0]*v[0]+cov[2][1]*v[1]+cov[2][2]*v[2]];
+      v=V3.norm(v);
+    }
+    if(v[1]<0)v=V3.mul(v,-1);                    // growth points up
+    const up=[0,1,0];
+    const axis=V3.cross(v,up), s=V3.len(axis), co=V3.dot(v,up);
+    let R=[[1,0,0],[0,1,0],[0,0,1]];
+    if(s>1e-6){
+      const [ax,ay,az]=V3.norm(axis), t=1-co, si=s;
+      R=[[t*ax*ax+co,   t*ax*ay-si*az, t*ax*az+si*ay],
+         [t*ax*ay+si*az,t*ay*ay+co,    t*ay*az-si*ax],
+         [t*ax*az-si*ay,t*ay*az+si*ax, t*az*az+co   ]];
+    } else if(co<0){ R=[[1,0,0],[0,-1,0],[0,0,-1]]; }
+    out=nodes.map(p=>{
+      const d=V3.sub(p,c);
+      return [R[0][0]*d[0]+R[0][1]*d[1]+R[0][2]*d[2],
+              R[1][0]*d[0]+R[1][1]*d[1]+R[1][2]*d[2],
+              R[2][0]*d[0]+R[2][1]*d[1]+R[2][2]*d[2]];
+    });
+  } else {
+    // NATURAL: keep the built orientation (seed base flat on the ground)
+    out=nodes.map(p=>[p[0]-c[0],p[1],p[2]-c[2]]);
+  }
   // vertical extent
   let ymin=1e9,ymax=-1e9; out.forEach(p=>{ymin=Math.min(ymin,p[1]);ymax=Math.max(ymax,p[1]);});
   const span=Math.max(ymax-ymin,1e-6);
@@ -566,7 +599,7 @@ gl.clearColor(1,1,1,1);
 
 /* ---------------- state ---------------- */
 const S={count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,
-         colorMode:0,hue:0,spin:1,mutSeed:0,mutAmt:0,wire:0,mirrorPol:0};
+         colorMode:0,hue:0,spin:1,mutSeed:0,mutAmt:0,wire:0,mirrorPol:0,dir:0};
 let sculpture=null; // {nodes,edges,tets}
 let plan=[];        // growth history: null = auto step, {tet,slot} = picked face
 let opStack=[];     // sizes of past Add operations (for Undo)
@@ -575,7 +608,7 @@ let pickFaces=[];   // clickable faces with resolved positions
 
 function regenerate(){
   const base=buildFromPlan(plan,S.mutSeed||1);
-  let d=orientAndDeform(base.nodes,S.twist,S.curl,S.mutAmt,base.rand);
+  let d=orientAndDeform(base.nodes,S.twist,S.curl,S.mutAmt,base.rand,S.dir);
   const st=applyStructure(d,base.edges,S.structure,base.tets,S.mirrorPol);
   st.baseTetCount=base.tets.length;
   sculpture=st;
@@ -695,13 +728,7 @@ function bindRange(id,out,key,fmt){
     regenerate();
   });
 }
-// Tetras slider rebuilds a fresh auto chain (clears custom growth)
-$("count").addEventListener("input",e=>{
-  const v=parseInt(e.target.value); S.count=v;
-  plan=Array(Math.max(v-1,0)).fill(null);
-  opStack=[]; selFace=null;
-  $("oCount").textContent=v; regenerate();
-});
+bindSeg("segDir","dir");
 // Add button: grow n tetras, starting from the picked face if one is selected
 $("addTet").addEventListener("click",()=>{
   let n=parseInt($("addN").value)||1; n=Math.max(1,Math.min(99,n));
@@ -712,8 +739,7 @@ $("addTet").addEventListener("click",()=>{
   }
   opStack.push(n);
   selFace=null;
-  const total=plan.length+1; S.count=total;
-  $("count").value=Math.min(total,60); $("oCount").textContent=total;
+  S.count=plan.length+1;
   regenerate();
 });
 // Undo: remove the tetras added by the last Add (or one, as fallback)
@@ -722,8 +748,7 @@ $("undoTet").addEventListener("click",()=>{
   if(!n) return;
   plan.length=Math.max(0,plan.length-n);
   selFace=null;
-  const total=plan.length+1; S.count=total;
-  $("count").value=Math.min(total,60); $("oCount").textContent=total;
+  S.count=plan.length+1;
   regenerate();
 });
 bindRange("twist","oTwist","twist",v=>v+"°");
@@ -747,14 +772,13 @@ $("mutate").addEventListener("click",()=>{
   S.mutSeed=(Math.random()*1e9)>>>0; S.mutAmt=0.16; regenerate();
 });
 $("reset").addEventListener("click",()=>{
-  Object.assign(S,{count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,colorMode:0,hue:0,mutSeed:0,mutAmt:0,wire:0,mirrorPol:0});
+  Object.assign(S,{count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,colorMode:0,hue:0,mutSeed:0,mutAmt:0,wire:0,mirrorPol:0,dir:0});
   plan=[]; opStack=[]; selFace=null; $("addN").value=1;
-  $("count").value=1;$("oCount").textContent=1;
   $("twist").value=0;$("oTwist").textContent="0°";
   $("curl").value=0;$("oCurl").textContent="0°";
   $("thick").value=0.01;$("oThick").textContent="0.01";
   $("hue").value=0;$("oHue").textContent="0°";
-  [["segMirror",0],["segPol",0],["segJoint",0],["segColor",0],["segWire",0]].forEach(([id,v])=>{
+  [["segMirror",0],["segPol",0],["segJoint",0],["segColor",0],["segWire",0],["segDir",0]].forEach(([id,v])=>{
     $(id).querySelectorAll("button").forEach(b=>b.classList.toggle("on",parseInt(b.dataset.v)===v));});
   regenerate();
 });
