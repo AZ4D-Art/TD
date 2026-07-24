@@ -213,11 +213,12 @@ function mat4LookAt(eye,c,up){
 function buildFromPlan(plan, jitterSeed){
   const e=1.0;                       // edge length
   let rand=(function(s){return function(){s=(s*1664525+1013904223)>>>0;return s/4294967296;};})(jitterSeed>>>0);
+  // regular tetrahedron with its base face flat on the ground plane (y)
   const nodes=[
-    [ Math.sqrt(8/9)*e,          0,        -e/3],
-    [-Math.sqrt(2/9)*e,  Math.sqrt(2/3)*e, -e/3],
-    [-Math.sqrt(2/9)*e, -Math.sqrt(2/3)*e, -e/3],
-    [0,0,e]
+    [ Math.sqrt(8/9)*e, -e/3, 0],
+    [-Math.sqrt(2/9)*e, -e/3,  Math.sqrt(2/3)*e],
+    [-Math.sqrt(2/9)*e, -e/3, -Math.sqrt(2/3)*e],
+    [0, e, 0]
   ];
   const tets=[[0,1,2,3]];
   let cur=[0,1,2,3];                 // node indices of current tetra
@@ -271,36 +272,11 @@ function computeFaces(nodes,tets){
    apply twist (rot about Y per unit y) and curl (bend about Z).   */
 function orientAndDeform(nodes, twistDeg, curlDeg, mutAmt, rand){
   const N=nodes.length;
-  // centroid
+  // keep the built orientation (seed base flat on the ground plane);
+  // recentre horizontally only
   const c=[0,0,0]; nodes.forEach(p=>{c[0]+=p[0];c[1]+=p[1];c[2]+=p[2];});
   c[0]/=N;c[1]/=N;c[2]/=N;
-  // principal axis via power iteration on covariance
-  let cov=[[0,0,0],[0,0,0],[0,0,0]];
-  nodes.forEach(p=>{const d=V3.sub(p,c);
-    for(let i=0;i<3;i++)for(let j=0;j<3;j++)cov[i][j]+=d[i]*d[j];});
-  let v=[1,0.3,0.2];
-  for(let k=0;k<24;k++){
-    v=[cov[0][0]*v[0]+cov[0][1]*v[1]+cov[0][2]*v[2],
-       cov[1][0]*v[0]+cov[1][1]*v[1]+cov[1][2]*v[2],
-       cov[2][0]*v[0]+cov[2][1]*v[1]+cov[2][2]*v[2]];
-    v=V3.norm(v);
-  }
-  // rotation taking v -> [0,1,0]
-  const up=[0,1,0];
-  const axis=V3.cross(v,up), s=V3.len(axis), co=V3.dot(v,up);
-  let R=[[1,0,0],[0,1,0],[0,0,1]];
-  if(s>1e-6){
-    const [ax,ay,az]=V3.norm(axis), t=1-co, si=s;
-    R=[[t*ax*ax+co,   t*ax*ay-si*az, t*ax*az+si*ay],
-       [t*ax*ay+si*az,t*ay*ay+co,    t*ay*az-si*ax],
-       [t*ax*az-si*ay,t*ay*az+si*ax, t*az*az+co   ]];
-  } else if(co<0){ R=[[1,0,0],[0,-1,0],[0,0,-1]]; }
-  let out=nodes.map(p=>{
-    const d=V3.sub(p,c);
-    return [R[0][0]*d[0]+R[0][1]*d[1]+R[0][2]*d[2],
-            R[1][0]*d[0]+R[1][1]*d[1]+R[1][2]*d[2],
-            R[2][0]*d[0]+R[2][1]*d[1]+R[2][2]*d[2]];
-  });
+  let out=nodes.map(p=>[p[0]-c[0],p[1],p[2]-c[2]]);
   // vertical extent
   let ymin=1e9,ymax=-1e9; out.forEach(p=>{ymin=Math.min(ymin,p[1]);ymax=Math.max(ymax,p[1]);});
   const span=Math.max(ymax-ymin,1e-6);
@@ -323,9 +299,11 @@ function orientAndDeform(nodes, twistDeg, curlDeg, mutAmt, rand){
     }
     return [nx,ny,z];
   });
-  // recentre
-  const c2=[0,0,0]; out.forEach(p=>{c2[0]+=p[0];c2[1]+=p[1];c2[2]+=p[2];});
-  out=out.map(p=>[p[0]-c2[0]/N,p[1]-c2[1]/N,p[2]-c2[2]/N]);
+  // recentre: x/z by centroid, y by bounding-box middle (keeps base level)
+  const c2=[0,0]; let y0=1e9,y1=-1e9;
+  out.forEach(p=>{c2[0]+=p[0];c2[1]+=p[2];y0=Math.min(y0,p[1]);y1=Math.max(y1,p[1]);});
+  const ymid=(y0+y1)/2;
+  out=out.map(p=>[p[0]-c2[0]/N,p[1]-ymid,p[2]-c2[1]/N]);
   return out;
 }
 
@@ -769,7 +747,12 @@ $("savePng").addEventListener("click",()=>{
 function exportMesh(){
   const st=sculpture;
   const faceList=computeFaces(st.nodes,st.tets);
-  return beamMesh(st.nodes,st.edges,S.thick,S.colorMode,S.hue,S.joints===1,faceList,st.tets,false,null);
+  const mm=beamMesh(st.nodes,st.edges,S.thick,S.colorMode,S.hue,S.joints===1,faceList,st.tets,false,null);
+  // rest the model on the ground plane: shift so ymin = 0
+  let minY=1e9;
+  for(let i=1;i<mm.pos.length;i+=3) minY=Math.min(minY,mm.pos[i]);
+  for(let i=1;i<mm.pos.length;i+=3) mm.pos[i]-=minY;
+  return mm;
 }
 function download(name,text){
   const blob=new Blob([text],{type:"text/plain"});
