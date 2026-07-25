@@ -224,7 +224,10 @@ function viewer(id,opts){
   gl.vertexAttribPointer(loc.aPos,3,gl.FLOAT,false,0,0);
   const nVerts=arr.length/3;
 
-  const cam={theta:opts.theta??0.6,phi:opts.phi??1.2,dist:r*3.1};
+  /* fit the whole bounding sphere inside the frame at any rotation:
+     fov 34°, frame aspect 4:5 -> horizontal is the tight axis */
+  const fit=r/(Math.tan(17*Math.PI/180)*0.8)*1.12;
+  const cam={theta:opts.theta??0.6,phi:opts.phi??1.2,dist:fit};
   let dragging=false,px=0,py=0;
   canvas.addEventListener("pointerdown",e=>{dragging=true;px=e.clientX;py=e.clientY;
     canvas.setPointerCapture(e.pointerId);});
