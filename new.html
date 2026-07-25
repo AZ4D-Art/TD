@@ -272,9 +272,11 @@ function viewer(id,opts){
     if(!p||!p.nodes||!p.edges)return;
     const div=document.createElement("div");
     div.className="proj";
+    const openLink=p.plan?'<a href="./?open='+encodeURIComponent(p.id||i)+
+      '" title="Open in the builder to edit &amp; export">OPEN</a> · ':'';
     div.innerHTML='<div class="frame"><canvas id="sv'+i+'"></canvas></div>'+
       '<h2></h2><p>'+(p.tetras||"?")+' TETRAHEDRA · SAVED '+(p.date||"")+
-      '<br>DRAG TO ORBIT · <a href="#" data-rm="'+i+'">REMOVE</a></p>';
+      '<br>DRAG TO ORBIT · '+openLink+'<a href="#" data-rm="'+i+'">REMOVE</a></p>';
     div.querySelector("h2").textContent=p.name||("PROJECT "+(saved.length-i));
     frag.appendChild(div);
   });

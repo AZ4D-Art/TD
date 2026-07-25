@@ -898,11 +898,15 @@ $("saveNew").addEventListener("click",()=>{
     const key="az4d_projects";
     const list=JSON.parse(localStorage.getItem(key)||"[]");
     list.unshift({
+      id:"p"+Date.now().toString(36),
       name:"PROJECT "+(list.length+1),
       date:new Date().toISOString().slice(0,10),
       tetras:sculpture.tets.length,
       nodes:sculpture.nodes.map(p=>[+p[0].toFixed(4),+p[1].toFixed(4),+p[2].toFixed(4)]),
-      edges:sculpture.edges
+      edges:sculpture.edges,
+      plan:plan.map(x=>x?{tet:x.tet,slot:x.slot}:null),   // full recipe so the
+      ops:opStack.slice(),                                 // project can be reopened,
+      S:{...S}                                             // edited and exported
     });
     localStorage.setItem(key,JSON.stringify(list));
     b.textContent="Saved ✓ — see NEW";
@@ -917,7 +921,35 @@ $("tab").addEventListener("click",()=>{
 });
 setTimeout(()=>{const h=$("hint");if(h)h.style.opacity=0;},7000);
 
+/* ---- reopen a saved project (?open=<id> from the SAVED page) ---- */
+function syncUI(){
+  $("twist").value=S.twist;  $("oTwist").textContent=S.twist+"°";
+  $("curl").value=S.curl;    $("oCurl").textContent=S.curl+"°";
+  $("thick").value=S.thick;  $("oThick").textContent=(+S.thick).toFixed(2);
+  $("hue").value=S.hue;      $("oHue").textContent=S.hue+"°";
+  [["segDir",S.dir],["segMirror",S.structure],["segPol",S.mirrorPol],
+   ["segMlock",S.mirLock],["segWire",S.wire],["segColor",S.colorMode],
+   ["segSpin",S.spin]].forEach(([id,v])=>{
+    $(id).querySelectorAll("button").forEach(b=>b.classList.toggle("on",parseInt(b.dataset.v)===v));});
+}
+function openSaved(){
+  const q=new URLSearchParams(location.search).get("open");
+  if(!q) return false;
+  try{
+    const list=JSON.parse(localStorage.getItem("az4d_projects")||"[]");
+    const p=list.find(x=>x&&x.id===q)||list[parseInt(q)];
+    if(!p||!p.plan) return false;
+    plan=p.plan.map(x=>x?{tet:x.tet,slot:x.slot}:null);
+    opStack=(p.ops||[]).slice();
+    Object.assign(S,p.S||{});
+    S.count=plan.length+1; selFace=null;
+    syncUI();
+    return true;
+  }catch(err){ return false; }
+}
+
 /* ---------------- go ---------------- */
+openSaved();
 regenerate();
 cam.dist=cam.fit;
 requestAnimationFrame(frame);
