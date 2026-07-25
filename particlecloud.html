@@ -317,7 +317,7 @@ addEventListener("resize",resize); resize();
    One closed cycle: the camera makes a full revolution while every
    particle follows a displacement field built ONLY from sin(2πφ·k)
    terms, so phase 1 is bit-identical to phase 0 -> perfect loop.  */
-const LOOP_SECONDS=3;
+const LOOP_SECONDS=30;
 let loop=null;   // {t0,P0,theta0,rec,chunks}
 function loopPositions(phi){
   const n=S.count, P0=loop.P0;
