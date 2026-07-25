@@ -59,6 +59,7 @@
   .btn:hover{color:#fff;background:var(--ink);border-color:var(--ink)}
   .hr{height:1px;background:var(--hair);flex:none}
   #dock{position:sticky;bottom:0;margin-top:auto;flex:none;
+    display:grid;grid-template-columns:1fr 1fr;gap:8px;
     padding:14px 0 6px;background:linear-gradient(to bottom,rgba(255,255,255,0),rgba(255,255,255,.94) 38%)}
   #tab{position:fixed;left:22px;top:74px;z-index:11;border:1px solid var(--hair);
     background:rgba(255,255,255,.7);width:30px;height:30px;font-size:11px;color:var(--dim);
@@ -133,7 +134,8 @@
   <div class="hr"></div>
 
   <div id="dock">
-    <button class="btn" id="savePng" title="Save image">Save image — PNG</button>
+    <button class="btn" id="savePng" title="Save image">PNG</button>
+    <button class="btn" id="saveLoop" title="Record a seamless 3-second orbit loop (.webm)">Loop</button>
   </div>
 </aside>
 <button id="tab" title="toggle panel">◂</button>
@@ -311,11 +313,78 @@ function resize(){
 }
 addEventListener("resize",resize); resize();
 
+/* ---------------- seamless loop recording ----------------
+   One closed cycle: the camera makes a full revolution while every
+   particle follows a displacement field built ONLY from sin(2πφ·k)
+   terms, so phase 1 is bit-identical to phase 0 -> perfect loop.  */
+const LOOP_SECONDS=3;
+let loop=null;   // {t0,P0,theta0,rec,chunks}
+function loopPositions(phi){
+  const n=S.count, P0=loop.P0;
+  const w1=Math.PI*2*phi, w2=w1*2;
+  const amp=0.055*(0.5+S.turb*0.75)*S.spread;
+  for(let i=0;i<n;i++){
+    const j=3*i;
+    const ax=P0[j]*3.3+P0[j+1]*1.7, ay=P0[j+1]*3.1+P0[j+2]*1.9, az=P0[j+2]*2.9+P0[j]*2.1;
+    pos[j]  =P0[j]  +amp*(Math.sin(w1+ax)+0.5*Math.sin(w2+ay));
+    pos[j+1]=P0[j+1]+amp*(Math.sin(w1+ay)+0.5*Math.sin(w2+az));
+    pos[j+2]=P0[j+2]+amp*(Math.sin(w1+az)+0.5*Math.sin(w2+ax));
+  }
+}
+function startLoop(){
+  if(loop) return;
+  const b=$("saveLoop");
+  if(typeof MediaRecorder==="undefined"||!canvas.captureStream){
+    b.textContent="Not supported"; setTimeout(()=>b.textContent="Loop",2000); return;
+  }
+  const stream=canvas.captureStream(30);
+  let rec=null;
+  for(const mt of ["video/webm;codecs=vp9","video/webm;codecs=vp8","video/webm",""]){
+    try{ rec=mt?new MediaRecorder(stream,{mimeType:mt,videoBitsPerSecond:12e6})
+              :new MediaRecorder(stream); break; }catch(e){}
+  }
+  if(!rec){ b.textContent="Not supported"; setTimeout(()=>b.textContent="Loop",2000); return; }
+  const chunks=[];
+  rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
+  rec.onstop=()=>{
+    if(!chunks.length){b.textContent="Failed";setTimeout(()=>b.textContent="Loop",2000);return;}
+    const blob=new Blob(chunks,{type:"video/webm"});
+    const a=document.createElement("a");
+    a.download="az4d-particlecloud-loop.webm";
+    a.href=URL.createObjectURL(blob); a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  };
+  try{rec.start();}catch(e){
+    b.textContent="Not supported"; setTimeout(()=>b.textContent="Loop",2000); return;
+  }
+  loop={t0:performance.now(),P0:pos.slice(0,S.count*3),theta0:cam.theta,rec,chunks};
+  b.textContent="Recording…";
+}
+function endLoop(){
+  const b=$("saveLoop");
+  // land exactly on phase 0 state before the final frames flush
+  loopPositions(0);
+  cam.theta=loop.theta0;
+  const rec=loop.rec;
+  setTimeout(()=>{try{rec.stop();}catch(e){}},120);   // let the closing frame reach the stream
+  loop=null;
+  b.textContent="Loop";
+}
+
 let last=performance.now(), viewShift=0;
 function frame(now){
   const dt=Math.min((now-last)/1000,0.05); last=now;
-  if(S.play) step(dt);
-  if(S.spin&&!dragging) cam.theta+=dt*0.16;
+  if(loop){
+    const phi=(now-loop.t0)/(LOOP_SECONDS*1000);
+    if(phi>=1){ endLoop(); }
+    else{
+      loopPositions(phi);
+      cam.theta=loop.theta0+Math.PI*2*phi;   // one full revolution per cycle
+    }
+  }else{
+    if(S.play) step(dt);
+    if(S.spin&&!dragging) cam.theta+=dt*0.16;
+  }
   const pEl=document.getElementById("panel");
   const tShift=pEl.classList.contains("hidden")?0:pEl.offsetWidth/innerWidth;
   viewShift+=(tShift-viewShift)*Math.min(dt*6,1);
@@ -374,6 +443,7 @@ $("savePng").addEventListener("click",()=>{
   a.download="az4d-particlecloud.png";
   a.href=canvas.toDataURL("image/png"); a.click();
 });
+$("saveLoop").addEventListener("click",startLoop);
 $("shrink").addEventListener("click",()=>$("tab").click());
 $("tab").addEventListener("click",()=>{
   $("panel").classList.toggle("hidden");
