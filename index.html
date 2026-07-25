@@ -24,7 +24,7 @@
   /* ---------- panel : transparent left column ---------- */
   #panel{position:fixed;top:0;left:0;bottom:0;width:250px;z-index:10;
     background:transparent;border-right:1px solid var(--line);
-    padding:74px 22px 80px;
+    padding:74px 22px 18px;
     display:flex;flex-direction:column;gap:16px;overflow-y:auto;
     transition:transform .55s cubic-bezier(.19,1,.22,1),opacity .45s}
   #panel.hidden{transform:translateX(-105%);opacity:0;pointer-events:none}
@@ -34,6 +34,9 @@
   #panel .hr{display:none}
   #panel>.cap{display:none}
   #panel>.btn{flex:none;width:100%}
+  #dock{position:sticky;bottom:0;margin-top:auto;flex:none;
+    display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;
+    padding:14px 0 6px;background:linear-gradient(to bottom,rgba(255,255,255,0),rgba(255,255,255,.94) 38%)}
 
   .ctl label{display:flex;justify-content:space-between;align-items:baseline;
     font-size:9px;letter-spacing:.28em;text-transform:uppercase;color:var(--dim);margin-bottom:9px}
@@ -84,7 +87,7 @@
     text-transform:uppercase;color:var(--faint);pointer-events:none;transition:opacity 1s}
 
   @media(max-width:640px){
-    #panel{width:216px;padding:64px 16px 74px;gap:13px}
+    #panel{width:216px;padding:64px 16px 14px;gap:13px}
     #brand{top:18px}
     #hint{display:none}
     #tab{left:14px;top:64px}
@@ -173,10 +176,11 @@
 
   <div class="hr"></div>
 
-  <button class="btn solid" id="savePng">Save Image</button>
-  <button class="btn" id="saveObj">Export .OBJ</button>
-  <button class="btn" id="saveFbx">Export .FBX</button>
-  <p class="cap" style="line-height:1.9">Drag to orbit<br>Scroll / pinch to zoom</p>
+  <div id="dock">
+    <button class="btn solid" id="savePng" title="Save image">PNG</button>
+    <button class="btn" id="saveObj" title="Export .OBJ">OBJ</button>
+    <button class="btn" id="saveFbx" title="Export .FBX">FBX</button>
+  </div>
 </aside>
 <button id="tab" title="toggle panel">◂</button>
 
