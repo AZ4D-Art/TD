@@ -268,6 +268,10 @@ function viewer(id,opts){
 (function(){
   let saved=[];
   try{saved=JSON.parse(localStorage.getItem("az4d_projects")||"[]");}catch(e){}
+  if(saved.length>3){                       // only the last three saves live here
+    saved=saved.slice(0,3);
+    try{localStorage.setItem("az4d_projects",JSON.stringify(saved));}catch(e){}
+  }
   if(!saved.length)return;
   const grid=document.getElementById("grid");
   const frag=document.createDocumentFragment();
@@ -275,11 +279,14 @@ function viewer(id,opts){
     if(!p||!p.nodes||!p.edges)return;
     const div=document.createElement("div");
     div.className="proj";
-    const openLink=p.plan?'<a href="./?open='+encodeURIComponent(p.id||i)+
+    const ref=encodeURIComponent(p.id||i);
+    const openLink=p.plan?'<a href="./?open='+ref+
       '" title="Open in the builder to edit &amp; export">OPEN</a> · ':'';
+    const fbxLink=p.plan?'<a href="./?open='+ref+
+      '&amp;export=fbx" title="Download this sculpture as .FBX">FBX</a> · ':'';
     div.innerHTML='<div class="frame"><canvas id="sv'+i+'"></canvas></div>'+
       '<h2></h2><p>'+(p.tetras||"?")+' TETRAHEDRA · SAVED '+(p.date||"")+
-      '<br>DRAG TO ORBIT · '+openLink+'<a href="#" data-rm="'+i+'">REMOVE</a></p>';
+      '<br>DRAG TO ORBIT · '+openLink+fbxLink+'<a href="#" data-rm="'+i+'">REMOVE</a></p>';
     div.querySelector("h2").textContent=p.name||("PROJECT "+(saved.length-i));
     frag.appendChild(div);
   });

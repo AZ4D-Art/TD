@@ -908,6 +908,7 @@ $("saveNew").addEventListener("click",()=>{
       ops:opStack.slice(),                                 // project can be reopened,
       S:{...S}                                             // edited and exported
     });
+    list.length=Math.min(list.length,3);   // keep only the last three saves
     localStorage.setItem(key,JSON.stringify(list));
     b.textContent="Saved ✓ — see NEW";
   }catch(err){ b.textContent="Save failed"; }
@@ -933,25 +934,27 @@ function syncUI(){
     $(id).querySelectorAll("button").forEach(b=>b.classList.toggle("on",parseInt(b.dataset.v)===v));});
 }
 function openSaved(){
-  const q=new URLSearchParams(location.search).get("open");
-  if(!q) return false;
+  const qs=new URLSearchParams(location.search);
+  const q=qs.get("open");
+  if(!q) return null;
   try{
     const list=JSON.parse(localStorage.getItem("az4d_projects")||"[]");
     const p=list.find(x=>x&&x.id===q)||list[parseInt(q)];
-    if(!p||!p.plan) return false;
+    if(!p||!p.plan) return null;
     plan=p.plan.map(x=>x?{tet:x.tet,slot:x.slot}:null);
     opStack=(p.ops||[]).slice();
     Object.assign(S,p.S||{});
     S.count=plan.length+1; selFace=null;
     syncUI();
-    return true;
-  }catch(err){ return false; }
+    return qs.get("export")||true;   // "fbx" -> auto-download after load
+  }catch(err){ return null; }
 }
 
 /* ---------------- go ---------------- */
-openSaved();
+const openedAs=openSaved();
 regenerate();
 cam.dist=cam.fit;
+if(openedAs==="fbx") setTimeout(()=>$("saveFbx").click(),700);
 requestAnimationFrame(frame);
 </script>
 </body>
