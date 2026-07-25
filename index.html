@@ -16,10 +16,16 @@
   ::selection{background:#000;color:#fff}
 
   /* ---------- brand ---------- */
-  #brand{position:fixed;top:26px;left:50%;transform:translateX(-50%);text-align:center;
+  #brand{position:fixed;top:26px;left:50%;transform:translateX(-50%);
+    display:flex;align-items:baseline;gap:34px;
     pointer-events:none;z-index:5}
   #brand h1{font-size:15px;font-weight:300;letter-spacing:.55em;text-indent:.55em}
   #brand p{margin-top:6px;font-size:9px;letter-spacing:.34em;text-indent:.34em;color:var(--dim)}
+  #brand nav{display:flex;gap:24px}
+  #brand nav a{pointer-events:auto;font-size:10px;font-weight:300;
+    letter-spacing:.34em;text-indent:.34em;color:var(--dim);
+    text-decoration:none;transition:color .35s ease}
+  #brand nav a:hover{color:var(--ink)}
 
   /* ---------- panel : transparent left column ---------- */
   #panel{position:fixed;top:0;left:0;bottom:0;width:250px;z-index:10;
@@ -88,7 +94,8 @@
 
   @media(max-width:640px){
     #panel{width:216px;padding:64px 16px 14px;gap:13px}
-    #brand{top:18px}
+    #brand{top:18px;gap:18px}
+    #brand nav{gap:16px}
     #hint{display:none}
     #tab{left:14px;top:64px}
   }
@@ -99,6 +106,10 @@
 
 <div id="brand">
   <h1>AZ4D</h1>
+  <nav>
+    <a href="https://epochproject.wordpress.com" target="_blank" rel="noopener">INFO</a>
+    <a href="new.html">NEW</a>
+  </nav>
 </div>
 
 <aside id="panel">

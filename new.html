@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AZ4D — NEW</title>
+<style>
+  :root{
+    --ink:#0a0a0a; --dim:rgba(0,0,0,.55); --faint:rgba(0,0,0,.22);
+    --hair:rgba(0,0,0,.12);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:#fff;color:var(--ink);
+    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  ::selection{background:#000;color:#fff}
+
+  /* ---------- brand (same header as the builder) ---------- */
+  #brand{position:fixed;top:26px;left:50%;transform:translateX(-50%);
+    display:flex;align-items:baseline;gap:34px;z-index:5;
+    background:linear-gradient(to bottom,rgba(255,255,255,.96),rgba(255,255,255,0));
+    padding:0 20px 14px}
+  #brand h1{font-size:15px;font-weight:300;letter-spacing:.55em;text-indent:.55em}
+  #brand h1 a{color:var(--ink);text-decoration:none}
+  #brand nav{display:flex;gap:24px}
+  #brand nav a{font-size:10px;font-weight:300;letter-spacing:.34em;text-indent:.34em;
+    color:var(--dim);text-decoration:none;transition:color .35s ease}
+  #brand nav a:hover{color:var(--ink)}
+  #brand nav a.here{color:var(--ink)}
+
+  /* ---------- page ---------- */
+  main{max-width:1180px;margin:0 auto;padding:120px 34px 60px}
+  #lede{font-size:10px;letter-spacing:.34em;text-indent:.34em;color:var(--dim);
+    text-align:center;margin-bottom:64px}
+
+  #grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+    gap:44px 34px}
+  .proj{display:flex;flex-direction:column}
+  .proj .frame{position:relative;width:100%;aspect-ratio:4/5;border:1px solid var(--hair)}
+  .proj canvas{position:absolute;inset:0;width:100%;height:100%;display:block;
+    touch-action:none;cursor:grab}
+  .proj canvas:active{cursor:grabbing}
+  .proj h2{margin-top:16px;font-size:11px;font-weight:300;letter-spacing:.4em;text-indent:.4em}
+  .proj p{margin-top:7px;font-size:9px;letter-spacing:.2em;line-height:1.9;color:var(--dim)}
+
+  footer{margin-top:80px;text-align:center;font-size:9px;
+    letter-spacing:.3em;text-indent:.3em;color:var(--faint)}
+
+  @media(max-width:640px){
+    #brand{top:18px;gap:18px}
+    #brand nav{gap:16px}
+    main{padding:104px 22px 48px}
+    #grid{gap:38px}
+  }
+</style>
+</head>
+<body>
+
+<div id="brand">
+  <h1><a href="./" title="Back to the builder">AZ4D</a></h1>
+  <nav>
+    <a href="https://epochproject.wordpress.com" target="_blank" rel="noopener">INFO</a>
+    <a href="new.html" class="here">NEW</a>
+  </nav>
+</div>
+
+<main>
+  <p id="lede">NEW PROJECTS</p>
+
+  <div id="grid">
+    <div class="proj">
+      <div class="frame"><canvas id="v1"></canvas></div>
+      <h2>HELIX I</h2>
+      <p>BOERDIJK–COXETER CHAIN · 16 TETRAHEDRA<br>DRAG TO ORBIT</p>
+    </div>
+    <div class="proj">
+      <div class="frame"><canvas id="v2"></canvas></div>
+      <h2>TORSION STUDY</h2>
+      <p>12 TETRAHEDRA · TWISTED FIELD<br>DRAG TO ORBIT</p>
+    </div>
+    <div class="proj">
+      <div class="frame"><canvas id="v3"></canvas></div>
+      <h2>ARC</h2>
+      <p>22 TETRAHEDRA · CURLED CHAIN<br>DRAG TO ORBIT</p>
+    </div>
+  </div>
+
+  <footer>AZ4D — WORK IN PROGRESS · MORE SOON</footer>
+</main>
+
+<script>
+"use strict";
+/* ================================================================
+   AZ4D — NEW : independent wireframe viewers, one per project.
+   Same construction as the front-page builder: regular tetrahedra
+   grown by face reflection (Boerdijk–Coxeter tetrahelix).
+   ================================================================ */
+const V3={
+  add:(a,b)=>[a[0]+b[0],a[1]+b[1],a[2]+b[2]],
+  sub:(a,b)=>[a[0]-b[0],a[1]-b[1],a[2]-b[2]],
+  mul:(a,s)=>[a[0]*s,a[1]*s,a[2]*s],
+  dot:(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],
+  cross:(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],
+  norm:a=>{const l=Math.hypot(a[0],a[1],a[2])||1;return[a[0]/l,a[1]/l,a[2]/l];}
+};
+function mat4Perspective(fov,asp,n,f){
+  const t=1/Math.tan(fov/2);
+  return [t/asp,0,0,0, 0,t,0,0, 0,0,(f+n)/(n-f),-1, 0,0,2*f*n/(n-f),0];
+}
+function mat4LookAt(eye,c,up){
+  const z=V3.norm(V3.sub(eye,c)),x=V3.norm(V3.cross(up,z)),y=V3.cross(z,x);
+  return [x[0],y[0],z[0],0, x[1],y[1],z[1],0, x[2],y[2],z[2],0,
+    -V3.dot(x,eye),-V3.dot(y,eye),-V3.dot(z,eye),1];
+}
+
+/* tetrahelix: reflect the oldest vertex through its opposite face */
+function buildChain(count){
+  const e=1.0;
+  const nodes=[
+    [ Math.sqrt(8/9)*e,-e/3,0],
+    [-Math.sqrt(2/9)*e,-e/3, Math.sqrt(2/3)*e],
+    [-Math.sqrt(2/9)*e,-e/3,-Math.sqrt(2/3)*e],
+    [0,e,0]
+  ];
+  const tets=[[0,1,2,3]];
+  let cur=[0,1,2,3];
+  for(let i=1;i<count;i++){
+    const ref=cur[0], face=[cur[1],cur[2],cur[3]];
+    const [A,B,C]=face.map(ix=>nodes[ix]);
+    const n=V3.norm(V3.cross(V3.sub(B,A),V3.sub(C,A)));
+    const d=V3.dot(V3.sub(nodes[ref],A),n);
+    nodes.push(V3.sub(nodes[ref],V3.mul(n,2*d)));
+    cur=[face[0],face[1],face[2],nodes.length-1];
+    tets.push([...cur]);
+  }
+  const eset=new Set(),edges=[];
+  for(const t of tets)
+    for(let a=0;a<4;a++)for(let b=a+1;b<4;b++){
+      const k=Math.min(t[a],t[b])+"_"+Math.max(t[a],t[b]);
+      if(!eset.has(k)){eset.add(k);edges.push([Math.min(t[a],t[b]),Math.max(t[a],t[b])]);}
+    }
+  return {nodes,edges};
+}
+
+/* twist about y by height, curl about z, then centre on the origin */
+function deform(nodes,twist,curl){
+  let y0=1e9,y1=-1e9;
+  for(const p of nodes){y0=Math.min(y0,p[1]);y1=Math.max(y1,p[1]);}
+  const H=Math.max(1e-6,y1-y0);
+  const out=nodes.map(p=>{
+    let [x,y,z]=p;
+    if(twist){
+      const a=twist*(y-y0)/H, c=Math.cos(a), s=Math.sin(a);
+      [x,z]=[x*c-z*s, x*s+z*c];
+    }
+    if(curl){
+      const a=curl*(y-y0)/H, c=Math.cos(a), s=Math.sin(a);
+      [x,y]=[x*c-(y-y0)*s, (x*s+(y-y0)*c)+y0];
+    }
+    return [x,y,z];
+  });
+  const c=[0,0,0];
+  for(const p of out){c[0]+=p[0];c[1]+=p[1];c[2]+=p[2];}
+  c[0]/=out.length;c[1]/=out.length;c[2]/=out.length;
+  let r=0;
+  for(const p of out){
+    p[0]-=c[0];p[1]-=c[1];p[2]-=c[2];
+    r=Math.max(r,Math.hypot(p[0],p[1],p[2]));
+  }
+  return {pts:out,r};
+}
+
+const VS=`attribute vec3 aPos;uniform mat4 uProj,uView;varying float vZ;
+void main(){vec4 v=uView*vec4(aPos,1.0);vZ=-v.z;gl_Position=uProj*v;}`;
+const FS=`precision mediump float;uniform float uFar;varying float vZ;
+void main(){float fog=clamp(1.0-vZ/uFar,0.0,1.0);
+vec3 c=mix(vec3(1.0),vec3(0.04),fog*0.9+0.1);gl_FragColor=vec4(c,1.0);}`;
+
+function viewer(id,opts){
+  const canvas=document.getElementById(id);
+  const gl=canvas.getContext("webgl",{antialias:true});
+  if(!gl)return;
+  const sh=(t,s)=>{const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);return o;};
+  const prog=gl.createProgram();
+  gl.attachShader(prog,sh(gl.VERTEX_SHADER,VS));
+  gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FS));
+  gl.linkProgram(prog);gl.useProgram(prog);
+  const loc={aPos:gl.getAttribLocation(prog,"aPos"),
+    uProj:gl.getUniformLocation(prog,"uProj"),
+    uView:gl.getUniformLocation(prog,"uView"),
+    uFar:gl.getUniformLocation(prog,"uFar")};
+  gl.clearColor(1,1,1,1);gl.enable(gl.DEPTH_TEST);gl.lineWidth(1);
+
+  const {nodes,edges}=buildChain(opts.count);
+  const {pts,r}=deform(nodes,opts.twist||0,opts.curl||0);
+  const arr=[];
+  for(const [a,b] of edges){arr.push(...pts[a],...pts[b]);}
+  const buf=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(arr),gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(loc.aPos);
+  gl.vertexAttribPointer(loc.aPos,3,gl.FLOAT,false,0,0);
+  const nVerts=arr.length/3;
+
+  const cam={theta:opts.theta??0.6,phi:opts.phi??1.2,dist:r*3.1};
+  let dragging=false,px=0,py=0;
+  canvas.addEventListener("pointerdown",e=>{dragging=true;px=e.clientX;py=e.clientY;
+    canvas.setPointerCapture(e.pointerId);});
+  canvas.addEventListener("pointermove",e=>{
+    if(!dragging)return;
+    cam.theta+=(e.clientX-px)*0.0075;cam.phi-=(e.clientY-py)*0.0075;
+    cam.phi=Math.max(0.08,Math.min(Math.PI-0.08,cam.phi));
+    px=e.clientX;py=e.clientY;});
+  addEventListener("pointerup",()=>dragging=false);
+
+  function resize(){
+    const dpr=Math.min(devicePixelRatio||1,2);
+    const w=canvas.clientWidth,h=canvas.clientHeight;
+    if(canvas.width!==w*dpr||canvas.height!==h*dpr){
+      canvas.width=w*dpr;canvas.height=h*dpr;}
+  }
+  let last=performance.now();
+  function frame(now){
+    const dt=(now-last)/1000;last=now;
+    if(!dragging)cam.theta+=dt*(opts.spin??0.18);
+    resize();
+    gl.viewport(0,0,canvas.width,canvas.height);
+    const eye=[cam.dist*Math.sin(cam.phi)*Math.cos(cam.theta),
+               cam.dist*Math.cos(cam.phi),
+               cam.dist*Math.sin(cam.phi)*Math.sin(cam.theta)];
+    gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+    gl.uniformMatrix4fv(loc.uProj,false,new Float32Array(
+      mat4Perspective(34*Math.PI/180,canvas.width/canvas.height,0.1,200)));
+    gl.uniformMatrix4fv(loc.uView,false,new Float32Array(mat4LookAt(eye,[0,0,0],[0,1,0])));
+    gl.uniform1f(loc.uFar,cam.dist*2.4);
+    gl.drawArrays(gl.LINES,0,nVerts);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+viewer("v1",{count:16,spin:0.18,theta:0.5});
+viewer("v2",{count:12,twist:2.1,spin:-0.14,theta:2.2});
+viewer("v3",{count:22,curl:1.15,spin:0.16,theta:4.0,phi:1.05});
+</script>
+</body>
+</html>
