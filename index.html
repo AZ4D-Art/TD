@@ -574,12 +574,13 @@ const canvas=document.getElementById("gl");
 const gl=canvas.getContext("webgl",{antialias:true,preserveDrawingBuffer:true});
 const VS=`
 attribute vec3 aPos; attribute vec3 aNrm; attribute vec3 aCol;
-uniform mat4 uProj,uView; uniform float uT; uniform float uShiftX;
+uniform mat4 uProj,uView; uniform float uT; uniform float uShiftX; uniform float uShiftY;
 varying vec3 vN; varying vec3 vC; varying vec3 vW;
 void main(){
   vN=aNrm; vC=aCol; vW=aPos;
   gl_Position=uProj*uView*vec4(aPos,1.0);
   gl_Position.x+=uShiftX*gl_Position.w;   // centre in the visible area
+  gl_Position.y+=uShiftY*gl_Position.w;   // raise / lower the floor
 }`;
 const FS=`
 precision mediump float;
@@ -613,7 +614,8 @@ const loc={
   uEye:gl.getUniformLocation(prog,"uEye"),
   uFar:gl.getUniformLocation(prog,"uFar"),
   uFlat:gl.getUniformLocation(prog,"uFlat"),
-  uShiftX:gl.getUniformLocation(prog,"uShiftX")
+  uShiftX:gl.getUniformLocation(prog,"uShiftX"),
+  uShiftY:gl.getUniformLocation(prog,"uShiftY")
 };
 const bufPos=gl.createBuffer(),bufNrm=gl.createBuffer(),bufCol=gl.createBuffer();
 let vertCount=0;
@@ -654,6 +656,8 @@ function regenerate(){
 /* ---------------- camera / interaction ---------------- */
 const cam={theta:0.6,phi:1.15,dist:9,fit:9,vel:0};
 let dragging=false,px=0,py=0,pinch=0,sx=0,sy=0;
+let floorShift=0,panningFloor=false;   // NDC y-offset: two-finger click-drag raises / lowers the floor
+let pinchY=0;
 
 /* ---- face picking (click = choose the face to grow from) ---- */
 function rayTri(o,d,a,b,c){
@@ -666,7 +670,7 @@ function rayTri(o,d,a,b,c){
 function pickFace(e){
   const rect=canvas.getBoundingClientRect();
   const nx=((e.clientX-rect.left)/rect.width)*2-1-viewShift;
-  const ny=1-((e.clientY-rect.top)/rect.height)*2;
+  const ny=1-((e.clientY-rect.top)/rect.height)*2-floorShift;
   const eye=[cam.dist*Math.sin(cam.phi)*Math.cos(cam.theta),
              cam.dist*Math.cos(cam.phi),
              cam.dist*Math.sin(cam.phi)*Math.sin(cam.theta)];
@@ -686,23 +690,37 @@ function pickFace(e){
   regenerate();
 }
 
-canvas.addEventListener("pointerdown",e=>{dragging=true;px=e.clientX;py=e.clientY;sx=e.clientX;sy=e.clientY;canvas.setPointerCapture(e.pointerId);});
+canvas.addEventListener("pointerdown",e=>{
+  if(e.button===2||e.button===1){panningFloor=true;}   // two-finger / right click: move floor
+  else dragging=true;
+  px=e.clientX;py=e.clientY;sx=e.clientX;sy=e.clientY;canvas.setPointerCapture(e.pointerId);});
 canvas.addEventListener("pointermove",e=>{
+  if(panningFloor){
+    floorShift-=(e.clientY-py)*2/innerHeight;
+    floorShift=Math.max(-1.6,Math.min(1.6,floorShift));
+    px=e.clientX;py=e.clientY;return;
+  }
   if(!dragging)return;
   cam.theta+=(e.clientX-px)*0.0055; cam.phi-=(e.clientY-py)*0.0055;
   cam.phi=Math.max(0.08,Math.min(Math.PI-0.08,cam.phi));
   px=e.clientX;py=e.clientY;
 });
 addEventListener("pointerup",e=>{
-  if(dragging&&e.target===canvas&&Math.hypot(e.clientX-sx,e.clientY-sy)<6) pickFace(e);
-  dragging=false;});
+  if(dragging&&e.button===0&&e.target===canvas&&Math.hypot(e.clientX-sx,e.clientY-sy)<6) pickFace(e);
+  dragging=false;panningFloor=false;});
+canvas.addEventListener("contextmenu",e=>e.preventDefault());
 canvas.addEventListener("wheel",e=>{e.preventDefault();
   cam.dist*=1+Math.sign(e.deltaY)*0.07; cam.dist=Math.max(2,Math.min(40,cam.dist));},{passive:false});
 canvas.addEventListener("touchstart",e=>{if(e.touches.length===2){
-  pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);}},{passive:true});
+  pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+  pinchY=(e.touches[0].clientY+e.touches[1].clientY)/2;}},{passive:true});
 canvas.addEventListener("touchmove",e=>{if(e.touches.length===2){
   const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-  cam.dist*=pinch/d; cam.dist=Math.max(2,Math.min(40,cam.dist)); pinch=d; e.preventDefault();}},{passive:false});
+  cam.dist*=pinch/d; cam.dist=Math.max(2,Math.min(40,cam.dist)); pinch=d;
+  const ay=(e.touches[0].clientY+e.touches[1].clientY)/2;   // two-finger vertical move: floor up/down
+  floorShift-=(ay-pinchY)*2/innerHeight;
+  floorShift=Math.max(-1.6,Math.min(1.6,floorShift)); pinchY=ay;
+  e.preventDefault();}},{passive:false});
 
 function resize(){
   const dpr=Math.min(devicePixelRatio||1,2);
@@ -738,6 +756,7 @@ function frame(now){
   }
   gl.uniform1f(loc.uFlat,S.wire?1:0);
   gl.uniform1f(loc.uShiftX,viewShift);
+  gl.uniform1f(loc.uShiftY,floorShift);
   gl.drawArrays(S.wire?gl.LINES:gl.TRIANGLES,0,vertCount);
   requestAnimationFrame(frame);
 }
