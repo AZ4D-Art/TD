@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AZ4D — INFO · Alexander Zaklynsky</title>
+<style>
+  :root{
+    --ink:#0a0a0a; --dim:rgba(0,0,0,.55); --faint:rgba(0,0,0,.32);
+    --hair:rgba(0,0,0,.12);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:#fff;color:var(--ink);
+    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  ::selection{background:#000;color:#fff}
+
+  /* ---------- brand (same header as the builder) ---------- */
+  #brand{position:fixed;top:26px;left:50%;transform:translateX(-50%);
+    display:flex;align-items:baseline;gap:34px;z-index:5;
+    background:linear-gradient(to bottom,rgba(255,255,255,.96),rgba(255,255,255,0));
+    padding:0 20px 14px}
+  #brand h1{font-size:15px;font-weight:300;letter-spacing:.55em;text-indent:.55em}
+  #brand h1 a{color:var(--ink);text-decoration:none}
+  #brand nav{display:flex;gap:24px}
+  #brand nav a{font-size:10px;font-weight:300;letter-spacing:.34em;text-indent:.34em;
+    color:var(--dim);text-decoration:none;transition:color .35s ease}
+  #brand nav a:hover{color:var(--ink)}
+  #brand nav a.here{color:var(--ink)}
+
+  /* ---------- page ---------- */
+  main{max-width:760px;margin:0 auto;padding:130px 34px 70px}
+  h2#name{font-size:17px;font-weight:300;letter-spacing:.32em;text-indent:.32em;
+    text-align:center}
+  #meta{margin-top:14px;text-align:center;font-size:9px;letter-spacing:.24em;
+    line-height:2.2;color:var(--dim)}
+  #meta a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--hair)}
+  #meta a:hover{color:var(--ink)}
+
+  #quote{margin:54px auto 0;max-width:520px;text-align:center;
+    font-size:11px;line-height:2;color:var(--dim);font-style:italic}
+  #quote span{display:block;margin-top:8px;font-style:normal;font-size:9px;
+    letter-spacing:.24em;color:var(--faint)}
+
+  #statement{margin:44px auto 0;font-size:11.5px;line-height:2.1;color:var(--dim);
+    text-align:justify}
+
+  section{margin-top:64px}
+  section h3{font-size:10px;font-weight:400;letter-spacing:.4em;text-indent:.4em;
+    color:var(--ink);padding-bottom:12px;border-bottom:1px solid var(--hair);
+    margin-bottom:24px}
+  .item{display:grid;grid-template-columns:86px 1fr;gap:0 18px;
+    font-size:10.5px;line-height:1.95;color:var(--dim);margin-bottom:16px}
+  .item .yr{color:var(--ink);letter-spacing:.12em}
+  .item a{color:var(--dim);text-decoration:none;border-bottom:1px solid var(--hair);
+    transition:color .3s}
+  .item a:hover{color:var(--ink)}
+  .item.tight{margin-bottom:6px}
+
+  #dl{margin-top:80px;text-align:center}
+  #dl a{display:inline-block;font-size:10px;letter-spacing:.34em;text-indent:.34em;
+    color:var(--dim);text-decoration:none;border:1px solid var(--hair);
+    padding:13px 30px;transition:all .35s ease}
+  #dl a:hover{color:#fff;background:var(--ink);border-color:var(--ink)}
+
+  footer{margin-top:70px;text-align:center;font-size:9px;
+    letter-spacing:.3em;text-indent:.3em;color:var(--faint)}
+
+  @media(max-width:640px){
+    #brand{top:18px;gap:18px}
+    #brand nav{gap:16px}
+    main{padding:110px 22px 50px}
+    .item{grid-template-columns:64px 1fr;gap:0 12px}
+  }
+</style>
+</head>
+<body>
+
+<div id="brand">
+  <h1><a href="./" title="Back to the builder">AZ4D</a></h1>
+  <nav>
+    <a href="info.html" class="here">INFO</a>
+    <a href="new.html">SAVED</a>
+  </nav>
+</div>
+
+<main>
+  <h2 id="name">ALEXANDER ZAKLYNSKY</h2>
+  <p id="meta">B. 1978 · <a href="http://www.zaklynsky.com" target="_blank" rel="noopener">ZAKLYNSKY.COM</a><br>
+    <a href="mailto:Azaklynsky@gmail.com">AZAKLYNSKY@GMAIL.COM</a> · +354 854 1978<br>
+    AUÐBREKKA 9, APT 107 · KÓPAVOGUR 200 · ICELAND</p>
+
+  <p id="quote">“Form is set by the process of giving form, which is more important
+    than the form itself.”<span>— PAUL KLEE</span></p>
+
+  <p id="statement">Breaking the two and three dimensional fields of traditional art
+    into the fourth dimension is a primary drive in my creative process. Infusing
+    these fields with aesthetic resonance is the goal. Expression, abstraction,
+    representation and spatialism converge in my work through meditative explorations
+    of perspective, color and structure. I aim to build physical and visual stimuli
+    into multi sensory experiences that lead the viewer to a state of reflection and
+    pause. My work navigates the contemporary landscape establishing platforms from
+    which to gain new perspectives. In my paintings I work with collaging photographic
+    and designed elements, layering combinations of color, patterns and stenciled
+    imagery. I work with a broad range of media and techniques, using my paintings as
+    stepping stones into atmospheric sculptures and audio/visual installations.
+    I incorporate various themes in my work, from ancient mythologies, my own
+    heritage, new media and societal trends to investigations of art and its
+    presentation in contemporary culture. I develop my art through a studio practice
+    of collaboration, research, exploration and experimentation. In exploring the
+    creative process I search for ways to achieve an aesthetic balance with
+    conceptual and visual clarity.</p>
+
+  <section>
+    <h3>EDUCATION</h3>
+    <div class="item"><span class="yr">2015 – 2017</span>
+      <span>Artscience — Master : Royal Academy of Art and Royal Conservatory of Den Haag, NL.</span></div>
+    <div class="item"><span class="yr">1996 – 2000</span>
+      <span>Sculpture — BFA : Rhode Island School of Design, Providence, RI, USA.</span></div>
+  </section>
+
+  <section>
+    <h3>EXHIBITIONS</h3>
+    <div class="item"><span class="yr">2021</span>
+      <span><a href="https://www.pulchri.nl/nl/tentoonstellingen/between-here-there/" target="_blank" rel="noopener">Between Here And There</a> — Pulchri Studio, The Hague, NL. Group show curated by Zaklynsky on the theme of reflection and resonance.</span></div>
+    <div class="item"><span class="yr">2021</span>
+      <span><a href="https://www.pulchri.nl/nl/tentoonstellingen/voorhout-monumentaal-2021/" target="_blank" rel="noopener">Voorhout Monumental 2021</a> — Pulchri Studio, The Hague, NL. Group exhibition of sculpture.</span></div>
+    <div class="item"><span class="yr">2019</span>
+      <span><a href="https://www.bosfineart.com/nl/" target="_blank" rel="noopener">Zaklynsky: Sculpture &amp; Painting</a> — Bos Fine Art Gallery, Den Haag, NL. Solo exhibition of new works and works in progress: bronze sculpture and machine-aided paintings.</span></div>
+    <div class="item"><span class="yr">2019</span>
+      <span><a href="http://www.zaklynsky.com/index.php?/works/tetra-sculpture/" target="_blank" rel="noopener">Pieces of Infinity</a> — Pulchri Studio, Den Haag, NL. Bronze and aluminum sculptures representing research into the characteristics of regular polyhedra or platonic solids.</span></div>
+    <div class="item"><span class="yr">2018</span>
+      <span><a href="http://www.zaklynsky.com/index.php?/press--article/pulchri-magazinemarch-2018/" target="_blank" rel="noopener">Patterns of Perspective</a> — Pulchri Studio, Den Haag, NL. New paintings bringing the viewer into an environment of resonance and vibration; parallax color patterns and machine-controlled network structures floating around the visual breaking line.</span></div>
+    <div class="item"><span class="yr">2017</span>
+      <span>Pulchri Studio, Den Haag, NL. One of three KABK graduates awarded the summer exhibition at Pulchri Studio.</span></div>
+    <div class="item"><span class="yr">2015</span>
+      <span><a href="http://www.zaklynsky.com/index.php?/az/constructed-horizons--harpa/" target="_blank" rel="noopener">Constructed Horizons</a> — Harpa, Reykjavik, IS. Solo exhibition of paintings.</span></div>
+    <div class="item"><span class="yr">2015</span>
+      <span>Gallery Bakari, Reykjavik, IS. Exhibition of new paintings created at Heima Residency, Seydisfjordur, IS.</span></div>
+    <div class="item"><span class="yr">2014</span>
+      <span><a href="http://www.zaklynsky.com/index.php?/works/gallery-bakari---lumine-maris-ubique/" target="_blank" rel="noopener">Lumine Maris Ubique</a> — Gallery Bakari, Reykjavik, IS. Solo show of paintings and sculpture.</span></div>
+    <div class="item"><span class="yr">2014</span>
+      <span><a href="http://www.zaklynsky.com/index.php?/video/apteka-sztuki-gallery/" target="_blank" rel="noopener">Gallery Apteka Sztuki</a> — Warsaw, PL. Solo exhibition and book release.</span></div>
+    <div class="item"><span class="yr">2013</span>
+      <span><a href="https://newportartmuseum.org/exhibitions/alexander-zaklynsky/" target="_blank" rel="noopener">New Works: Constructions of Form and Color</a> — The Newport Art Museum, Newport, RI, USA. Solo show.</span></div>
+  </section>
+
+  <section>
+    <h3>INTERNATIONAL EXCHANGES / RESIDENCIES</h3>
+    <div class="item tight"><span class="yr">2019</span><span><a href="http://mietair.com/" target="_blank" rel="noopener">MietAiR</a>, NL.</span></div>
+    <div class="item tight"><span class="yr">2018</span><span>ESA/ESTEC: ILEWG, NL. — Resident Artist / Founder of the <a href="http://www.moongallery.eu/" target="_blank" rel="noopener">Moon Gallery</a>.</span></div>
+    <div class="item tight"><span class="yr">2016</span><span><a href="https://pif.camp/" target="_blank" rel="noopener">Pif Camp Residency</a>, Slovenia.</span></div>
+    <div class="item tight"><span class="yr">2016</span><span><a href="https://bastl-instruments.com/" target="_blank" rel="noopener">BASTL</a>, CZ.</span></div>
+    <div class="item tight"><span class="yr">2015</span><span><a href="http://h-e-i-m-a.com/" target="_blank" rel="noopener">HEIMA</a>, IS.</span></div>
+    <div class="item tight"><span class="yr">2013</span><span><a href="http://Culturia.de" target="_blank" rel="noopener">Culturia</a>, DE.</span></div>
+    <div class="item tight"><span class="yr">2013</span><span><a href="http://mietair.com/" target="_blank" rel="noopener">MietAiR</a>, NL.</span></div>
+    <div class="item tight"><span class="yr">2012</span><span><a href="https://cercca.cat/" target="_blank" rel="noopener">CERCCA</a>, ES.</span></div>
+    <div class="item tight"><span class="yr">2012</span><span>Brno House of Arts, CZ — REMAKE.</span></div>
+    <div class="item tight"><span class="yr">2011</span><span><a href="https://lvivcenter.org" target="_blank" rel="noopener">Lviv Center for Urban History</a>, UA.</span></div>
+    <div class="item tight"><span class="yr">2007</span><span><a href="http://skolska28.cz/islandia" target="_blank" rel="noopener">Skolska 28 &amp; NoD</a>, CZ.</span></div>
+    <div class="item tight"><span class="yr">2005</span><span><a href="http://sim.is/" target="_blank" rel="noopener">S.I.M. Icelandic Association of Artists</a>, IS.</span></div>
+  </section>
+
+  <section>
+    <h3>PROJECTS</h3>
+    <div class="item"><span class="yr">2017</span>
+      <span><a href="http://www.moongallery.eu/" target="_blank" rel="noopener">Moon Gallery Initiative</a> — ESA/ESTEC, ILEWG, NL. Founder. An international collaborative artwork and a gallery of ideas worth sending to the Moon — 100 artifacts within a 10 × 10 × 1 cm plate on a lunar lander's exterior panelling; a Petri-dish-like gallery developing a culture for a future interplanetary society.</span></div>
+    <div class="item"><span class="yr">2007</span>
+      <span><a href="http://losthorse.is/" target="_blank" rel="noopener">Lost Horse Gallery</a> — Reykjavik, IS. Founder and initiator. Created and managed the artist-run project space and exhibition venue in Reykjavik Center, active 2007 – 2013.</span></div>
+  </section>
+
+  <section>
+    <h3>RECENT ARTICLES &amp; PUBLICATIONS</h3>
+    <div class="item"><span class="yr">2020</span>
+      <span><a href="https://www.tandfonline.com/doi/full/10.1080/17513472.2020.1733923" target="_blank" rel="noopener">Pieces of Infinity</a> — Journal of Mathematics and the Arts, USA. Article on the process and philosophy of the Pieces of Infinity sculpture works.</span></div>
+    <div class="item"><span class="yr">2018</span>
+      <span><a href="https://jegensentevens.nl/2018/12/alexander-zaklynsky-on-ai-and-the-moon-project/" target="_blank" rel="noopener">Alexander Zaklynsky on AI and the Moon Project</a> — Cybil Scott, Den Haag, NL.</span></div>
+    <div class="item"><span class="yr">2018</span>
+      <span><a href="http://www.zaklynsky.com/index.php?/press--article/42nd-cospar-scientific-assembly/" target="_blank" rel="noopener">42nd COSPAR Scientific Assembly</a>, USA. First publication of the Moon Gallery concept and initiative.</span></div>
+  </section>
+
+  <section>
+    <h3>REPRESENTATION</h3>
+    <div class="item tight"><span class="yr"></span><span><a href="http://losthorse.is" target="_blank" rel="noopener">Lost Horse Gallery</a>, Iceland.</span></div>
+    <div class="item tight"><span class="yr"></span><span><a href="https://www.pulchri.nl" target="_blank" rel="noopener">Pulchri Studio</a>, Den Haag, Holland.</span></div>
+    <div class="item tight"><span class="yr"></span><span><a href="http://www.moongallery.eu" target="_blank" rel="noopener">The Moon Gallery</a>, Interplanetary.</span></div>
+    <div class="item tight"><span class="yr"></span><span>Samband Islenskra Myndlistarmanna — <a href="http://sim.is" target="_blank" rel="noopener">SIM.is</a> &amp; <a href="https://arkiv.is" target="_blank" rel="noopener">Arkiv.is</a>.</span></div>
+    <div class="item tight"><span class="yr"></span><span><a href="https://haagsekunstenaars.nl" target="_blank" rel="noopener">Haagse Kunstenaars</a>, NL.</span></div>
+  </section>
+
+  <p id="dl"><a href="azcv2022.pdf" download>DOWNLOAD CV — PDF</a></p>
+
+  <footer>AZ4D — ALEXANDER ZAKLYNSKY</footer>
+</main>
+
+</body>
+</html>
