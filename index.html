@@ -21,11 +21,11 @@
     pointer-events:none;z-index:5}
   #brand h1{font-size:15px;font-weight:300;letter-spacing:.55em;text-indent:.55em}
   #brand p{margin-top:6px;font-size:9px;letter-spacing:.34em;text-indent:.34em;color:var(--dim)}
-  #brand nav{display:flex;gap:24px}
-  #brand nav a{pointer-events:auto;font-size:10px;font-weight:300;
+  #nav{position:fixed;top:31px;right:28px;display:flex;gap:24px;z-index:6}
+  #nav a{font-size:10px;font-weight:300;
     letter-spacing:.34em;text-indent:.34em;color:var(--dim);
     text-decoration:none;transition:color .35s ease}
-  #brand nav a:hover{color:var(--ink)}
+  #nav a:hover{color:var(--ink)}
 
   /* ---------- panel : transparent left column ---------- */
   #panel{position:fixed;top:0;left:0;bottom:0;width:250px;z-index:10;
@@ -95,7 +95,7 @@
   @media(max-width:640px){
     #panel{width:216px;padding:64px 16px 14px;gap:13px}
     #brand{top:18px;gap:18px}
-    #brand nav{gap:16px}
+    #nav{top:22px;right:16px;gap:16px}
     #hint{display:none}
     #tab{left:14px;top:64px}
   }
@@ -106,11 +106,11 @@
 
 <div id="brand">
   <h1>AZ4D</h1>
-  <nav>
-    <a href="info.html">INFO</a>
-    <a href="new.html">SAVED</a>
-  </nav>
 </div>
+<nav id="nav">
+  <a href="info.html">INFO</a>
+  <a href="new.html">SAVED</a>
+</nav>
 
 <aside id="panel">
   <button class="btn" id="shrink" style="padding:7px 0">◂&ensp;Hide</button>
