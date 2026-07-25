@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AZ4D — OTHER</title>
+<style>
+  :root{
+    --ink:#0a0a0a; --dim:rgba(0,0,0,.55); --faint:rgba(0,0,0,.32);
+    --hair:rgba(0,0,0,.12);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:#fff;color:var(--ink);
+    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  ::selection{background:#000;color:#fff}
+
+  #brand{position:fixed;top:26px;left:50%;transform:translateX(-50%);z-index:5;
+    background:linear-gradient(to bottom,rgba(255,255,255,.96),rgba(255,255,255,0));
+    padding:0 20px 14px}
+  #brand h1{font-size:15px;font-weight:300;letter-spacing:.55em;text-indent:.55em}
+  #brand h1 a{color:var(--ink);text-decoration:none}
+  #nav{position:fixed;top:31px;right:28px;display:flex;gap:24px;z-index:6}
+  #nav a{font-size:10px;font-weight:300;letter-spacing:.34em;text-indent:.34em;
+    color:var(--dim);text-decoration:none;transition:color .35s ease}
+  #nav a:hover{color:var(--ink)}
+  #nav a.here{color:var(--ink)}
+
+  main{max-width:880px;margin:0 auto;padding:130px 34px 70px}
+  #lede{font-size:10px;letter-spacing:.34em;text-indent:.34em;color:var(--dim);
+    text-align:center;margin-bottom:70px}
+
+  .file{display:grid;grid-template-columns:44px 1fr auto;gap:0 26px;
+    align-items:baseline;padding:26px 4px;border-top:1px solid var(--hair)}
+  .file:last-of-type{border-bottom:1px solid var(--hair)}
+  .file .no{font-size:10px;letter-spacing:.2em;color:var(--faint)}
+  .file h2{font-size:12px;font-weight:300;letter-spacing:.3em}
+  .file p{margin-top:8px;font-size:9px;letter-spacing:.2em;line-height:2;color:var(--dim)}
+  .file .act{display:flex;gap:14px}
+  .file .act a{font-size:9px;letter-spacing:.28em;text-indent:.28em;
+    color:var(--dim);text-decoration:none;border:1px solid var(--hair);
+    padding:10px 20px;transition:all .35s ease;white-space:nowrap}
+  .file .act a:hover{color:#fff;background:var(--ink);border-color:var(--ink)}
+
+  footer{margin-top:80px;text-align:center;font-size:9px;
+    letter-spacing:.3em;text-indent:.3em;color:var(--faint)}
+
+  @media(max-width:640px){
+    #brand{top:18px}
+    #nav{top:22px;right:16px;gap:16px}
+    main{padding:110px 22px 50px}
+    .file{grid-template-columns:1fr;gap:12px 0}
+    .file .no{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div id="brand">
+  <h1><a href="./" title="Back to the builder">AZ4D</a></h1>
+</div>
+<nav id="nav">
+  <a href="info.html">INFO</a>
+  <a href="new.html">SAVED</a>
+  <a href="other.html" class="here">OTHER</a>
+</nav>
+
+<main>
+  <p id="lede">OTHER — PICK A FILE TO PLAY / EDIT</p>
+
+  <div class="file">
+    <span class="no">01</span>
+    <div>
+      <h2>PARTICLECLOUD.27.TOE</h2>
+      <p>TOUCHDESIGNER PARTICLE SYSTEM · WEB REPRESENTATION<br>
+        A DRIFTING CLOUD IN A TURBULENT FLOW FIELD — PARTICLES, SIZE,
+        TURBULENCE, SPEED AND SPREAD ARE ALL EDITABLE LIVE.</p>
+    </div>
+    <div class="act"><a href="particlecloud.html">PLAY / EDIT</a></div>
+  </div>
+
+  <div class="file">
+    <span class="no">02</span>
+    <div>
+      <h2>TETRABUILDER2.TOX</h2>
+      <p>TOUCHDESIGNER TETRAHELIX SCULPTOR · WEB REPRESENTATION<br>
+        THE FRONT-PAGE BUILDER — GROW, TWIST, MIRROR AND EXPORT
+        TETRAHEDRON STRUT SCULPTURES.</p>
+    </div>
+    <div class="act"><a href="./">PLAY / EDIT</a></div>
+  </div>
+
+  <footer>AZ4D — MORE FILES SOON</footer>
+</main>
+
+</body>
+</html>

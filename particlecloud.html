@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AZ4D — PARTICLECLOUD</title>
+<style>
+  :root{
+    --ink:#0a0a0a; --dim:rgba(0,0,0,.55); --faint:rgba(0,0,0,.22);
+    --hair:rgba(0,0,0,.12);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-user-select:none}
+  html,body{height:100%;overflow:hidden;background:#fff;color:var(--ink);
+    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+  ::selection{background:#000;color:#fff}
+
+  #brand{position:fixed;top:26px;left:50%;transform:translateX(-50%);
+    pointer-events:none;z-index:5;text-align:center}
+  #brand h1{font-size:15px;font-weight:300;letter-spacing:.55em;text-indent:.55em}
+  #brand h1 a{pointer-events:auto;color:var(--ink);text-decoration:none}
+  #nav{position:fixed;top:31px;right:28px;display:flex;gap:24px;z-index:6}
+  #nav a{font-size:10px;font-weight:300;letter-spacing:.34em;text-indent:.34em;
+    color:var(--dim);text-decoration:none;transition:color .35s ease}
+  #nav a:hover{color:var(--ink)}
+  #nav a.here{color:var(--ink)}
+
+  /* ---------- panel : transparent left column ---------- */
+  #panel{position:fixed;top:0;left:0;bottom:0;width:250px;z-index:10;
+    display:flex;flex-direction:column;gap:16px;
+    padding:74px 22px 18px;border-right:1px solid var(--hair);
+    overflow-y:auto;scrollbar-width:none;transition:transform .45s cubic-bezier(.2,.9,.2,1)}
+  #panel::-webkit-scrollbar{display:none}
+  #panel.hidden{transform:translateX(-101%)}
+  .ctl label{display:flex;justify-content:space-between;align-items:baseline;
+    font-size:9px;letter-spacing:.28em;text-indent:.28em;color:var(--dim);
+    text-transform:uppercase;margin-bottom:7px}
+  .ctl output{color:var(--ink);letter-spacing:.1em}
+  input[type=range]{width:100%;appearance:none;-webkit-appearance:none;height:16px;background:transparent}
+  input[type=range]::-webkit-slider-runnable-track{height:1px;background:var(--faint)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;
+    margin-top:-5px;border-radius:50%;background:#fff;border:1px solid var(--ink)}
+  input[type=range]::-moz-range-track{height:1px;background:var(--faint)}
+  input[type=range]::-moz-range-thumb{width:9px;height:9px;border-radius:50%;
+    background:#fff;border:1px solid var(--ink)}
+  .seg{display:flex;border:1px solid var(--hair)}
+  .seg button{flex:1;padding:7px 0;font-size:9px;letter-spacing:.22em;text-indent:.22em;
+    text-transform:uppercase;background:none;border:none;color:var(--dim);cursor:pointer;
+    transition:all .3s}
+  .seg button.on{background:var(--ink);color:#fff}
+  .btn{border:1px solid var(--hair);background:none;padding:9px 0;width:100%;
+    font-size:9px;letter-spacing:.28em;text-indent:.28em;text-transform:uppercase;
+    color:var(--dim);cursor:pointer;transition:all .3s}
+  .btn:hover{color:#fff;background:var(--ink);border-color:var(--ink)}
+  .hr{height:1px;background:var(--hair);flex:none}
+  #dock{position:sticky;bottom:0;margin-top:auto;flex:none;
+    padding:14px 0 6px;background:linear-gradient(to bottom,rgba(255,255,255,0),rgba(255,255,255,.94) 38%)}
+  #tab{position:fixed;left:22px;top:74px;z-index:11;border:1px solid var(--hair);
+    background:rgba(255,255,255,.7);width:30px;height:30px;font-size:11px;color:var(--dim);
+    cursor:pointer;transition:all .3s}
+  #tab:hover{color:var(--ink)}
+  #panel:not(.hidden)~#tab{opacity:0;pointer-events:none}
+
+  #hint{position:fixed;right:26px;bottom:22px;font-size:9px;letter-spacing:.3em;
+    text-indent:.3em;color:var(--faint);z-index:5;transition:opacity 1.2s}
+
+  @media(max-width:640px){
+    #panel{width:216px;padding:64px 16px 14px;gap:13px}
+    #brand{top:18px}
+    #nav{top:22px;right:16px;gap:16px}
+    #hint{display:none}
+    #tab{left:14px;top:64px}
+  }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<div id="brand">
+  <h1><a href="./" title="Back to the builder">AZ4D</a></h1>
+</div>
+<nav id="nav">
+  <a href="info.html">INFO</a>
+  <a href="new.html">SAVED</a>
+  <a href="other.html" class="here">OTHER</a>
+</nav>
+
+<aside id="panel">
+  <button class="btn" id="shrink" style="padding:7px 0">◂&ensp;Hide</button>
+
+  <div class="ctl"><label>Particles <output id="oCount">15000</output></label>
+    <input type="range" id="count" min="2000" max="40000" step="1000" value="15000"></div>
+
+  <div class="ctl"><label>Size <output id="oSize">1.6</output></label>
+    <input type="range" id="size" min="0.5" max="5" step="0.1" value="1.6"></div>
+
+  <div class="ctl"><label>Turbulence <output id="oTurb">1.0</output></label>
+    <input type="range" id="turb" min="0" max="3" step="0.05" value="1"></div>
+
+  <div class="ctl"><label>Speed <output id="oSpeed">1.0</output></label>
+    <input type="range" id="speed" min="0" max="3" step="0.05" value="1"></div>
+
+  <div class="ctl"><label>Spread <output id="oSpread">1.0</output></label>
+    <input type="range" id="spread" min="0.4" max="2.2" step="0.05" value="1"></div>
+
+  <div class="hr"></div>
+
+  <div class="ctl"><label style="margin-bottom:9px">Playback</label>
+    <div class="seg" id="segPlay">
+      <button data-v="1" class="on">Play</button>
+      <button data-v="0">Pause</button>
+    </div></div>
+
+  <div class="ctl"><label style="margin-bottom:9px">Motion</label>
+    <div class="seg" id="segSpin">
+      <button data-v="1" class="on">Orbit</button>
+      <button data-v="0">Still</button>
+    </div></div>
+
+  <button class="btn" id="reseed">Reseed cloud</button>
+
+  <div class="hr"></div>
+
+  <div id="dock">
+    <button class="btn" id="savePng" title="Save image">Save image — PNG</button>
+  </div>
+</aside>
+<button id="tab" title="toggle panel">◂</button>
+
+<div id="hint">ParticleCloud.27.toe — web representation</div>
+
+<script>
+"use strict";
+/* ================================================================
+   AZ4D PARTICLECLOUD — web representation of ParticleCloud.27.toe
+   A drifting particle field in a pseudo-curl flow, white on black
+   inverted: black particles in white space, matching the AZ4D look.
+   ================================================================ */
+const canvas=document.getElementById("gl");
+const gl=canvas.getContext("webgl",{antialias:false,preserveDrawingBuffer:true});
+const VS=`
+attribute vec3 aPos;
+uniform mat4 uProj,uView; uniform float uSize; uniform float uShiftX;
+varying float vZ;
+void main(){
+  vec4 v=uView*vec4(aPos,1.0);
+  vZ=-v.z;
+  gl_Position=uProj*v;
+  gl_Position.x+=uShiftX*gl_Position.w;
+  gl_PointSize=max(uSize*(9.5/vZ),0.75);
+}`;
+const FS=`
+precision mediump float;
+uniform float uFar;
+varying float vZ;
+void main(){
+  vec2 d=gl_PointCoord-vec2(0.5);
+  if(dot(d,d)>0.25) discard;
+  float fog=clamp(1.0-vZ/uFar,0.0,1.0);
+  vec3 c=mix(vec3(1.0),vec3(0.05),fog*0.92+0.08);
+  gl_FragColor=vec4(c,0.85);
+}`;
+function shader(t,s){const o=gl.createShader(t);gl.shaderSource(o,s);gl.compileShader(o);
+  if(!gl.getShaderParameter(o,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(o));return o;}
+const prog=gl.createProgram();
+gl.attachShader(prog,shader(gl.VERTEX_SHADER,VS));
+gl.attachShader(prog,shader(gl.FRAGMENT_SHADER,FS));
+gl.linkProgram(prog); gl.useProgram(prog);
+const loc={aPos:gl.getAttribLocation(prog,"aPos"),
+  uProj:gl.getUniformLocation(prog,"uProj"),
+  uView:gl.getUniformLocation(prog,"uView"),
+  uSize:gl.getUniformLocation(prog,"uSize"),
+  uFar:gl.getUniformLocation(prog,"uFar"),
+  uShiftX:gl.getUniformLocation(prog,"uShiftX")};
+gl.enable(gl.BLEND);
+gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+gl.clearColor(1,1,1,1);
+
+function mat4Perspective(fov,asp,n,f){
+  const t=1/Math.tan(fov/2);
+  return [t/asp,0,0,0, 0,t,0,0, 0,0,(f+n)/(n-f),-1, 0,0,2*f*n/(n-f),0];
+}
+function mat4LookAt(ex,ey,ez){
+  // look at origin, up = +Y
+  let zx=ex,zy=ey,zz=ez;
+  const zl=Math.hypot(zx,zy,zz)||1; zx/=zl;zy/=zl;zz/=zl;
+  let xx=zz,xy=0,xz=-zx;               // cross(up,z) with up=(0,1,0)
+  const xl=Math.hypot(xx,xy,xz)||1; xx/=xl;xy/=xl;xz/=xl;
+  const yx=zy*xz-zz*xy, yy=zz*xx-zx*xz, yz=zx*xy-zy*xx;
+  return [xx,yx,zx,0, xy,yy,zy,0, xz,yz,zz,0,
+    -(xx*ex+xy*ey+xz*ez),-(yx*ex+yy*ey+yz*ez),-(zx*ex+zy*ey+zz*ez),1];
+}
+
+/* ---------------- particle state ---------------- */
+const S={count:15000,size:1.6,turb:1,speed:1,spread:1,play:1,spin:1};
+const MAX=40000;
+const pos=new Float32Array(MAX*3);
+let seedTick=0;
+function reseed(){
+  seedTick++;
+  let s=(1234567+seedTick*98765)>>>0;
+  const rnd=()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};
+  for(let i=0;i<MAX;i++){
+    // gaussian-ish ball
+    const u=rnd(),v=rnd(),w=rnd();
+    const th=u*6.28318, ph=Math.acos(2*v-1), r=Math.pow(w,0.42);
+    pos[3*i]=r*Math.sin(ph)*Math.cos(th);
+    pos[3*i+1]=r*Math.sin(ph)*Math.sin(th)*0.85;
+    pos[3*i+2]=r*Math.cos(ph);
+  }
+}
+reseed();
+const buf=gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+gl.bufferData(gl.ARRAY_BUFFER,pos,gl.DYNAMIC_DRAW);
+gl.enableVertexAttribArray(loc.aPos);
+gl.vertexAttribPointer(loc.aPos,3,gl.FLOAT,false,0,0);
+
+/* pseudo-curl flow field */
+let T=0;
+function step(dt){
+  const n=S.count, tb=S.turb, sp=S.spread;
+  T+=dt*(0.55+0.45*S.speed);
+  const t1=T*0.9, t2=T*0.7, t3=T*1.1;
+  const k=dt*0.55*S.speed;
+  for(let i=0;i<n;i++){
+    const j=3*i;
+    let x=pos[j],y=pos[j+1],z=pos[j+2];
+    const vx=(Math.sin(y*1.7*tb+t1)+Math.sin(z*1.3*tb+t2))*0.5;
+    const vy=(Math.sin(z*1.9*tb+t2)+Math.sin(x*1.1*tb+t3))*0.5;
+    const vz=(Math.sin(x*1.5*tb+t3)+Math.sin(y*1.2*tb+t1))*0.5;
+    // gentle containment: only pull back once outside the spread radius
+    const r=Math.hypot(x,y,z)||1e-6;
+    const pull=r>sp?(r-sp)*-0.85/r:0;
+    x+=(vx+x*pull)*k; y+=(vy+y*pull)*k; z+=(vz+z*pull)*k;
+    pos[j]=x;pos[j+1]=y;pos[j+2]=z;
+  }
+}
+
+/* ---------------- camera ---------------- */
+const cam={theta:0.5,phi:1.25,dist:5.2};
+let dragging=false,px=0,py=0,pinch=0;
+canvas.addEventListener("pointerdown",e=>{dragging=true;px=e.clientX;py=e.clientY;
+  canvas.setPointerCapture(e.pointerId);});
+canvas.addEventListener("pointermove",e=>{
+  if(!dragging)return;
+  cam.theta+=(e.clientX-px)*0.0055; cam.phi-=(e.clientY-py)*0.0055;
+  cam.phi=Math.max(0.08,Math.min(Math.PI-0.08,cam.phi));
+  px=e.clientX;py=e.clientY;});
+addEventListener("pointerup",()=>dragging=false);
+canvas.addEventListener("wheel",e=>{e.preventDefault();
+  cam.dist*=1+Math.sign(e.deltaY)*0.07; cam.dist=Math.max(1.4,Math.min(30,cam.dist));},{passive:false});
+canvas.addEventListener("touchstart",e=>{if(e.touches.length===2){
+  pinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);}},{passive:true});
+canvas.addEventListener("touchmove",e=>{if(e.touches.length===2){
+  const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+  cam.dist*=pinch/d; cam.dist=Math.max(1.4,Math.min(30,cam.dist)); pinch=d; e.preventDefault();}},{passive:false});
+canvas.addEventListener("contextmenu",e=>e.preventDefault());
+
+function resize(){
+  const dpr=Math.min(devicePixelRatio||1,2);
+  canvas.width=innerWidth*dpr; canvas.height=innerHeight*dpr;
+  gl.viewport(0,0,canvas.width,canvas.height);
+}
+addEventListener("resize",resize); resize();
+
+let last=performance.now(), viewShift=0;
+function frame(now){
+  const dt=Math.min((now-last)/1000,0.05); last=now;
+  if(S.play) step(dt);
+  if(S.spin&&!dragging) cam.theta+=dt*0.16;
+  const pEl=document.getElementById("panel");
+  const tShift=pEl.classList.contains("hidden")?0:pEl.offsetWidth/innerWidth;
+  viewShift+=(tShift-viewShift)*Math.min(dt*6,1);
+  const eye=[cam.dist*Math.sin(cam.phi)*Math.cos(cam.theta),
+             cam.dist*Math.cos(cam.phi),
+             cam.dist*Math.sin(cam.phi)*Math.sin(cam.theta)];
+  gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+  gl.bufferSubData(gl.ARRAY_BUFFER,0,pos.subarray(0,S.count*3));
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.uniformMatrix4fv(loc.uProj,false,new Float32Array(
+    mat4Perspective(38*Math.PI/180,canvas.width/canvas.height,0.05,80)));
+  gl.uniformMatrix4fv(loc.uView,false,new Float32Array(mat4LookAt(eye[0],eye[1],eye[2])));
+  gl.uniform1f(loc.uSize,S.size*Math.min(devicePixelRatio||1,2));
+  gl.uniform1f(loc.uFar,cam.dist*2.8);
+  gl.uniform1f(loc.uShiftX,viewShift);
+  gl.drawArrays(gl.POINTS,0,S.count);
+  requestAnimationFrame(frame);
+}
+
+/* ---------------- UI wiring ---------------- */
+const $=id=>document.getElementById(id);
+function bindRange(id,out,key,fmt){
+  $(id).addEventListener("input",e=>{
+    S[key]=parseFloat(e.target.value);
+    $(out).textContent=fmt(S[key]);
+  });
+}
+bindRange("count","oCount","count",v=>v.toFixed(0));
+bindRange("size","oSize","size",v=>v.toFixed(1));
+bindRange("turb","oTurb","turb",v=>v.toFixed(2));
+bindRange("speed","oSpeed","speed",v=>v.toFixed(2));
+bindRange("spread","oSpread","spread",v=>v.toFixed(2));
+function bindSeg(id,key){
+  const seg=$(id);
+  seg.querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+    seg.querySelectorAll("button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on"); S[key]=parseInt(b.dataset.v);
+  }));
+}
+bindSeg("segPlay","play");
+bindSeg("segSpin","spin");
+$("reseed").addEventListener("click",reseed);
+$("savePng").addEventListener("click",()=>{
+  const a=document.createElement("a");
+  a.download="az4d-particlecloud.png";
+  a.href=canvas.toDataURL("image/png"); a.click();
+});
+$("shrink").addEventListener("click",()=>$("tab").click());
+$("tab").addEventListener("click",()=>{
+  $("panel").classList.toggle("hidden");
+  $("tab").textContent=$("panel").classList.contains("hidden")?"▸":"◂";
+});
+setTimeout(()=>{const h=$("hint");if(h)h.style.opacity=0;},9000);
+
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
