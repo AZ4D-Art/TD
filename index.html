@@ -141,12 +141,6 @@
       <button data-v="1">Mir Vertical</button>
     </div></div>
 
-  <div class="ctl"><label class="cap" style="margin-bottom:9px">Joints</label>
-    <div class="seg" id="segJoint">
-      <button data-v="0" class="on">None</button>
-      <button data-v="1">Nodes</button>
-    </div></div>
-
   <div class="ctl"><label class="cap" style="margin-bottom:9px">Render</label>
     <div class="seg" id="segWire">
       <button data-v="0" class="on">Solid</button>
@@ -623,7 +617,7 @@ gl.enable(gl.DEPTH_TEST);
 gl.clearColor(1,1,1,1);
 
 /* ---------------- state ---------------- */
-const S={count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,
+const S={count:1,twist:0,curl:0,thick:0.01,structure:0,
          colorMode:0,hue:0,spin:1,mutSeed:0,mutAmt:0,wire:0,mirrorPol:0,dir:0,mirLock:0};
 let sculpture=null; // {nodes,edges,tets}
 let plan=[];        // growth history: null = auto step, {tet,slot} = picked face
@@ -643,7 +637,7 @@ function regenerate(){
   if(selFace&&!pickFaces.some(f=>f.boundary&&f.tet===selFace.tet&&f.slot===selFace.slot)) selFace=null;
   const gh=document.getElementById("growHint");
   if(gh) gh.textContent=selFace?"Face selected — Add grows there":"Click a face to grow from";
-  const m=beamMesh(st.nodes,st.edges,S.thick,S.colorMode,S.hue,S.joints===1,faceList,st.tets,S.wire===1,selFace);
+  const m=beamMesh(st.nodes,st.edges,S.thick,S.colorMode,S.hue,false,faceList,st.tets,S.wire===1,selFace);
   vertCount=m.pos.length/3;
   gl.bindBuffer(gl.ARRAY_BUFFER,bufPos); gl.bufferData(gl.ARRAY_BUFFER,m.pos,gl.STATIC_DRAW);
   gl.bindBuffer(gl.ARRAY_BUFFER,bufNrm); gl.bufferData(gl.ARRAY_BUFFER,m.nrm,gl.STATIC_DRAW);
@@ -790,7 +784,6 @@ function bindSeg(id,key,cb){
 bindSeg("segMirror","structure");
 bindSeg("segPol","mirrorPol");
 bindSeg("segMlock","mirLock");
-bindSeg("segJoint","joints");
 bindSeg("segWire","wire");
 bindSeg("segColor","colorMode");
 bindSeg("segSpin","spin",()=>{});
@@ -798,13 +791,13 @@ $("mutate").addEventListener("click",()=>{
   S.mutSeed=(Math.random()*1e9)>>>0; S.mutAmt=0.16; regenerate();
 });
 $("reset").addEventListener("click",()=>{
-  Object.assign(S,{count:1,twist:0,curl:0,thick:0.01,structure:0,joints:0,colorMode:0,hue:0,mutSeed:0,mutAmt:0,wire:0,mirrorPol:0,dir:0,mirLock:0});
+  Object.assign(S,{count:1,twist:0,curl:0,thick:0.01,structure:0,colorMode:0,hue:0,mutSeed:0,mutAmt:0,wire:0,mirrorPol:0,dir:0,mirLock:0});
   plan=[]; opStack=[]; selFace=null; $("addN").value=1;
   $("twist").value=0;$("oTwist").textContent="0°";
   $("curl").value=0;$("oCurl").textContent="0°";
   $("thick").value=0.01;$("oThick").textContent="0.01";
   $("hue").value=0;$("oHue").textContent="0°";
-  [["segMirror",0],["segPol",0],["segMlock",0],["segJoint",0],["segColor",0],["segWire",0],["segDir",0]].forEach(([id,v])=>{
+  [["segMirror",0],["segPol",0],["segMlock",0],["segColor",0],["segWire",0],["segDir",0]].forEach(([id,v])=>{
     $(id).querySelectorAll("button").forEach(b=>b.classList.toggle("on",parseInt(b.dataset.v)===v));});
   regenerate();
 });
@@ -818,7 +811,7 @@ $("savePng").addEventListener("click",()=>{
 function exportMesh(){
   const st=sculpture;
   const faceList=computeFaces(st.nodes,st.tets);
-  const mm=beamMesh(st.nodes,st.edges,S.thick,S.colorMode,S.hue,S.joints===1,faceList,st.tets,false,null);
+  const mm=beamMesh(st.nodes,st.edges,S.thick,S.colorMode,S.hue,false,faceList,st.tets,false,null);
   // rest the model on the ground plane: shift so ymin = 0
   let minY=1e9;
   for(let i=1;i<mm.pos.length;i+=3) minY=Math.min(minY,mm.pos[i]);
