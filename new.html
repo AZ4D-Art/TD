@@ -31,6 +31,10 @@
   main{max-width:1180px;margin:0 auto;padding:120px 34px 60px}
   #lede{font-size:10px;letter-spacing:.34em;text-indent:.34em;color:var(--dim);
     text-align:center;margin-bottom:64px}
+  #empty{font-size:9px;letter-spacing:.3em;text-indent:.3em;color:var(--faint);
+    text-align:center;line-height:2.4;padding:60px 20px}
+  #empty a{color:var(--dim);text-decoration:none}
+  #empty a:hover{color:var(--ink)}
 
   #grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
     gap:44px 34px}
@@ -66,25 +70,9 @@
 </div>
 
 <main>
-  <p id="lede">NEW PROJECTS</p>
+  <p id="lede">SAVED PROJECTS</p>
 
-  <div id="grid">
-    <div class="proj">
-      <div class="frame"><canvas id="v1"></canvas></div>
-      <h2>HELIX I</h2>
-      <p>BOERDIJK–COXETER CHAIN · 16 TETRAHEDRA<br>DRAG TO ORBIT</p>
-    </div>
-    <div class="proj">
-      <div class="frame"><canvas id="v2"></canvas></div>
-      <h2>TORSION STUDY</h2>
-      <p>12 TETRAHEDRA · TWISTED FIELD<br>DRAG TO ORBIT</p>
-    </div>
-    <div class="proj">
-      <div class="frame"><canvas id="v3"></canvas></div>
-      <h2>ARC</h2>
-      <p>22 TETRAHEDRA · CURLED CHAIN<br>DRAG TO ORBIT</p>
-    </div>
-  </div>
+  <div id="grid"></div>
 
   <footer>AZ4D — WORK IN PROGRESS · MORE SOON</footer>
 </main>
@@ -272,8 +260,12 @@ function viewer(id,opts){
     saved=saved.slice(0,3);
     try{localStorage.setItem("az4d_projects",JSON.stringify(saved));}catch(e){}
   }
-  if(!saved.length)return;
   const grid=document.getElementById("grid");
+  if(!saved.length){
+    grid.insertAdjacentHTML("beforebegin",
+      '<p id="empty">NOTHING SAVED YET<br><a href="./">BUILD A SCULPTURE AND PRESS “SAVE TO NEW PROJECTS”</a></p>');
+    return;
+  }
   const frag=document.createDocumentFragment();
   saved.forEach((p,i)=>{
     if(!p||!p.nodes||!p.edges)return;
@@ -304,10 +296,6 @@ function viewer(id,opts){
     location.reload();
   });
 })();
-
-viewer("v1",{count:16,spin:0.18,theta:0.5});
-viewer("v2",{count:12,twist:2.1,spin:-0.14,theta:2.2});
-viewer("v3",{count:22,curl:1.15,spin:0.16,theta:4.0,phi:1.05});
 </script>
 </body>
 </html>
