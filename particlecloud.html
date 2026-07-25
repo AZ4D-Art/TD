@@ -88,8 +88,11 @@
 <aside id="panel">
   <button class="btn" id="shrink" style="padding:7px 0">◂&ensp;Hide</button>
 
-  <div class="ctl"><label>Particles <output id="oCount">15000</output></label>
-    <input type="range" id="count" min="2000" max="40000" step="1000" value="15000"></div>
+  <div class="ctl"><label>Groups <output id="oGroups">6</output></label>
+    <input type="range" id="groups" min="1" max="24" step="1" value="6"></div>
+
+  <div class="ctl"><label>Particles / group <output id="oPer">2500</output></label>
+    <input type="range" id="per" min="100" max="5000" step="100" value="2500"></div>
 
   <div class="ctl"><label>Size <output id="oSize">1.6</output></label>
     <input type="range" id="size" min="0.5" max="5" step="0.1" value="1.6"></div>
@@ -191,22 +194,38 @@ function mat4LookAt(ex,ey,ez){
     -(xx*ex+xy*ey+xz*ez),-(yx*ex+yy*ey+yz*ez),-(zx*ex+zy*ey+zz*ez),1];
 }
 
-/* ---------------- particle state ---------------- */
-const S={count:15000,size:1.6,turb:1,speed:1,spread:1,play:1,spin:1};
-const MAX=40000;
+/* ---------------- particle state ----------------
+   Like the original .toe: N groups, each with its own drifting
+   center, and a per-group particle count.                      */
+const S={groups:6,per:2500,count:15000,size:1.6,turb:1,speed:1,spread:1,play:1,spin:1};
+const MAX=40000, NG=24;
 const pos=new Float32Array(MAX*3);
+const gc=new Float32Array(NG*3);      // group centers
+(function(){                          // seed centers on a loose shell
+  let s=777;
+  const rnd=()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};
+  for(let g=0;g<NG;g++){
+    const th=rnd()*6.28318, ph=Math.acos(2*rnd()-1), r=0.7+rnd()*0.8;
+    gc[3*g]=r*Math.sin(ph)*Math.cos(th);
+    gc[3*g+1]=r*Math.sin(ph)*Math.sin(th)*0.85;
+    gc[3*g+2]=r*Math.cos(ph);
+  }
+})();
+function syncCount(){S.count=Math.min(S.groups*S.per,MAX);}
+syncCount();
 let seedTick=0;
 function reseed(){
   seedTick++;
   let s=(1234567+seedTick*98765)>>>0;
   const rnd=()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;};
+  const gr=S.spread*0.55;
   for(let i=0;i<MAX;i++){
-    // gaussian-ish ball
+    const g=i%S.groups;
     const u=rnd(),v=rnd(),w=rnd();
-    const th=u*6.28318, ph=Math.acos(2*v-1), r=Math.pow(w,0.42);
-    pos[3*i]=r*Math.sin(ph)*Math.cos(th);
-    pos[3*i+1]=r*Math.sin(ph)*Math.sin(th)*0.85;
-    pos[3*i+2]=r*Math.cos(ph);
+    const th=u*6.28318, ph=Math.acos(2*v-1), r=gr*Math.pow(w,0.42);
+    pos[3*i]  =gc[3*g]  +r*Math.sin(ph)*Math.cos(th);
+    pos[3*i+1]=gc[3*g+1]+r*Math.sin(ph)*Math.sin(th);
+    pos[3*i+2]=gc[3*g+2]+r*Math.cos(ph);
   }
 }
 reseed();
@@ -219,20 +238,37 @@ gl.vertexAttribPointer(loc.aPos,3,gl.FLOAT,false,0,0);
 /* pseudo-curl flow field */
 let T=0;
 function step(dt){
-  const n=S.count, tb=S.turb, sp=S.spread;
+  const n=S.count, tb=S.turb, ng=S.groups;
   T+=dt*(0.55+0.45*S.speed);
   const t1=T*0.9, t2=T*0.7, t3=T*1.1;
   const k=dt*0.55*S.speed;
+  // drift the group centers slowly through the same flow,
+  // held to a loose shell so groups stay spaced apart
+  const kc=k*0.35;
+  for(let g=0;g<ng;g++){
+    const j=3*g;
+    let x=gc[j],y=gc[j+1],z=gc[j+2];
+    const vx=Math.sin(y*0.9+t2)+Math.sin(z*0.7+t1);
+    const vy=Math.sin(z*1.1+t3)+Math.sin(x*0.8+t2);
+    const vz=Math.sin(x*1.0+t1)+Math.sin(y*0.6+t3);
+    const r=Math.hypot(x,y,z)||1e-6;
+    const pull=(r-1.15)*-0.6/r;
+    x+=(vx*0.5+x*pull)*kc; y+=(vy*0.5+y*pull)*kc; z+=(vz*0.5+z*pull)*kc;
+    gc[j]=x;gc[j+1]=y;gc[j+2]=z;
+  }
+  // particles orbit their own group's drifting center
+  const gr=S.spread*0.55;
   for(let i=0;i<n;i++){
-    const j=3*i;
+    const j=3*i, gj=3*(i%ng);
     let x=pos[j],y=pos[j+1],z=pos[j+2];
     const vx=(Math.sin(y*1.7*tb+t1)+Math.sin(z*1.3*tb+t2))*0.5;
     const vy=(Math.sin(z*1.9*tb+t2)+Math.sin(x*1.1*tb+t3))*0.5;
     const vz=(Math.sin(x*1.5*tb+t3)+Math.sin(y*1.2*tb+t1))*0.5;
-    // gentle containment: only pull back once outside the spread radius
-    const r=Math.hypot(x,y,z)||1e-6;
-    const pull=r>sp?(r-sp)*-0.85/r:0;
-    x+=(vx+x*pull)*k; y+=(vy+y*pull)*k; z+=(vz+z*pull)*k;
+    // containment around the group center, not the origin
+    const dx=x-gc[gj], dy=y-gc[gj+1], dz=z-gc[gj+2];
+    const r=Math.hypot(dx,dy,dz)||1e-6;
+    const pull=r>gr?(r-gr)*-1.4/r:0;
+    x+=(vx+dx*pull)*k; y+=(vy+dy*pull)*k; z+=(vz+dz*pull)*k;
     pos[j]=x;pos[j+1]=y;pos[j+2]=z;
   }
 }
@@ -296,7 +332,10 @@ function bindRange(id,out,key,fmt){
     $(out).textContent=fmt(S[key]);
   });
 }
-bindRange("count","oCount","count",v=>v.toFixed(0));
+bindRange("groups","oGroups","groups",v=>v.toFixed(0));
+bindRange("per","oPer","per",v=>v.toFixed(0));
+$("groups").addEventListener("input",syncCount);
+$("per").addEventListener("input",syncCount);
 bindRange("size","oSize","size",v=>v.toFixed(1));
 bindRange("turb","oTurb","turb",v=>v.toFixed(2));
 bindRange("speed","oSpeed","speed",v=>v.toFixed(2));
