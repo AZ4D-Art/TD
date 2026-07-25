@@ -39,7 +39,8 @@
   #grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
     gap:44px 34px}
   .proj{display:flex;flex-direction:column}
-  .proj .frame{position:relative;width:100%;aspect-ratio:4/5;border:1px solid var(--hair)}
+  .proj .frame{position:relative;width:100%;border:1px solid var(--hair);
+    height:calc(100vh - 336px);min-height:300px}   /* scale viewers to the window height */
   .proj canvas{position:absolute;inset:0;width:100%;height:100%;display:block;
     touch-action:none;cursor:grab}
   .proj canvas:active{cursor:grabbing}
@@ -212,10 +213,7 @@ function viewer(id,opts){
   gl.vertexAttribPointer(loc.aPos,3,gl.FLOAT,false,0,0);
   const nVerts=arr.length/3;
 
-  /* fit the whole bounding sphere inside the frame at any rotation:
-     fov 34°, frame aspect 4:5 -> horizontal is the tight axis */
-  const fit=r/(Math.tan(17*Math.PI/180)*0.8)*1.12;
-  const cam={theta:opts.theta??0.6,phi:opts.phi??1.2,dist:fit};
+  const cam={theta:opts.theta??0.6,phi:opts.phi??1.2,dist:r*4};
   let dragging=false,px=0,py=0;
   canvas.addEventListener("pointerdown",e=>{dragging=true;px=e.clientX;py=e.clientY;
     canvas.setPointerCapture(e.pointerId);});
@@ -237,6 +235,10 @@ function viewer(id,opts){
     const dt=(now-last)/1000;last=now;
     if(!dragging)cam.theta+=dt*(opts.spin??0.18);
     resize();
+    /* keep the whole bounding sphere framed for the frame's CURRENT
+       aspect (frames now scale with the window height) */
+    const asp=canvas.width/Math.max(1,canvas.height);
+    cam.dist=r/(Math.tan(17*Math.PI/180)*Math.min(1,asp))*1.12;
     gl.viewport(0,0,canvas.width,canvas.height);
     const eye=[cam.dist*Math.sin(cam.phi)*Math.cos(cam.theta),
                cam.dist*Math.cos(cam.phi),
