@@ -41,6 +41,8 @@
   .proj canvas:active{cursor:grabbing}
   .proj h2{margin-top:16px;font-size:11px;font-weight:300;letter-spacing:.4em;text-indent:.4em}
   .proj p{margin-top:7px;font-size:9px;letter-spacing:.2em;line-height:1.9;color:var(--dim)}
+  .proj p a{color:var(--faint);text-decoration:none;transition:color .3s}
+  .proj p a:hover{color:var(--ink)}
 
   footer{margin-top:80px;text-align:center;font-size:9px;
     letter-spacing:.3em;text-indent:.3em;color:var(--faint)}
@@ -175,6 +177,20 @@ const FS=`precision mediump float;uniform float uFar;varying float vZ;
 void main(){float fog=clamp(1.0-vZ/uFar,0.0,1.0);
 vec3 c=mix(vec3(1.0),vec3(0.04),fog*0.9+0.1);gl_FragColor=vec4(c,1.0);}`;
 
+/* centre an arbitrary saved point cloud on the origin */
+function centre(nodes){
+  const c=[0,0,0];
+  for(const p of nodes){c[0]+=p[0];c[1]+=p[1];c[2]+=p[2];}
+  c[0]/=nodes.length;c[1]/=nodes.length;c[2]/=nodes.length;
+  let r=0;
+  const pts=nodes.map(p=>{
+    const q=[p[0]-c[0],p[1]-c[1],p[2]-c[2]];
+    r=Math.max(r,Math.hypot(q[0],q[1],q[2]));
+    return q;
+  });
+  return {pts,r:Math.max(r,1e-6)};
+}
+
 function viewer(id,opts){
   const canvas=document.getElementById(id);
   const gl=canvas.getContext("webgl",{antialias:true});
@@ -190,8 +206,15 @@ function viewer(id,opts){
     uFar:gl.getUniformLocation(prog,"uFar")};
   gl.clearColor(1,1,1,1);gl.enable(gl.DEPTH_TEST);gl.lineWidth(1);
 
-  const {nodes,edges}=buildChain(opts.count);
-  const {pts,r}=deform(nodes,opts.twist||0,opts.curl||0);
+  let pts,r,edges;
+  if(opts.data){                       // saved sculpture from the builder
+    const c=centre(opts.data.nodes);
+    pts=c.pts; r=c.r; edges=opts.data.edges;
+  }else{                               // built-in placeholder chain
+    const b=buildChain(opts.count);
+    const d=deform(b.nodes,opts.twist||0,opts.curl||0);
+    pts=d.pts; r=d.r; edges=b.edges;
+  }
   const arr=[];
   for(const [a,b] of edges){arr.push(...pts[a],...pts[b]);}
   const buf=gl.createBuffer();
@@ -237,6 +260,38 @@ function viewer(id,opts){
   }
   requestAnimationFrame(frame);
 }
+
+/* ---- sculptures saved from the builder ("Save to New Projects") ---- */
+(function(){
+  let saved=[];
+  try{saved=JSON.parse(localStorage.getItem("az4d_projects")||"[]");}catch(e){}
+  if(!saved.length)return;
+  const grid=document.getElementById("grid");
+  const frag=document.createDocumentFragment();
+  saved.forEach((p,i)=>{
+    if(!p||!p.nodes||!p.edges)return;
+    const div=document.createElement("div");
+    div.className="proj";
+    div.innerHTML='<div class="frame"><canvas id="sv'+i+'"></canvas></div>'+
+      '<h2></h2><p>'+(p.tetras||"?")+' TETRAHEDRA · SAVED '+(p.date||"")+
+      '<br>DRAG TO ORBIT · <a href="#" data-rm="'+i+'">REMOVE</a></p>';
+    div.querySelector("h2").textContent=p.name||("PROJECT "+(saved.length-i));
+    frag.appendChild(div);
+  });
+  grid.insertBefore(frag,grid.firstChild);
+  saved.forEach((p,i)=>{
+    if(!p||!p.nodes||!p.edges)return;
+    viewer("sv"+i,{data:p,spin:0.16+0.03*(i%3),theta:0.6+i});
+  });
+  grid.addEventListener("click",e=>{
+    const a=e.target.closest("a[data-rm]");
+    if(!a)return;
+    e.preventDefault();
+    saved.splice(+a.dataset.rm,1);
+    localStorage.setItem("az4d_projects",JSON.stringify(saved));
+    location.reload();
+  });
+})();
 
 viewer("v1",{count:16,spin:0.18,theta:0.5});
 viewer("v2",{count:12,twist:2.1,spin:-0.14,theta:2.2});

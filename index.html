@@ -187,6 +187,8 @@
 
   <div class="hr"></div>
 
+  <button class="btn" id="saveNew" title="Save this sculpture to the NEW projects page">Save to New Projects</button>
+
   <div id="dock">
     <button class="btn solid" id="savePng" title="Save image">PNG</button>
     <button class="btn" id="saveObj" title="Export .OBJ">OBJ</button>
@@ -889,6 +891,25 @@ $("saveFbx").addEventListener("click",()=>{
 'Connections:  {\n\tConnect: "OO", "Model::AZ4D_Tetra", "Model::Scene"\n}\n';
   download("az4d-tetra-sculpture.fbx",fbx);
 });
+/* ---- save the current sculpture to the NEW projects page ---- */
+$("saveNew").addEventListener("click",()=>{
+  const b=$("saveNew");
+  try{
+    const key="az4d_projects";
+    const list=JSON.parse(localStorage.getItem(key)||"[]");
+    list.unshift({
+      name:"PROJECT "+(list.length+1),
+      date:new Date().toISOString().slice(0,10),
+      tetras:sculpture.tets.length,
+      nodes:sculpture.nodes.map(p=>[+p[0].toFixed(4),+p[1].toFixed(4),+p[2].toFixed(4)]),
+      edges:sculpture.edges
+    });
+    localStorage.setItem(key,JSON.stringify(list));
+    b.textContent="Saved ✓ — see NEW";
+  }catch(err){ b.textContent="Save failed"; }
+  setTimeout(()=>b.textContent="Save to New Projects",1800);
+});
+
 $("shrink").addEventListener("click",()=>$("tab").click());
 $("tab").addEventListener("click",()=>{
   $("panel").classList.toggle("hidden");
