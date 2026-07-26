@@ -491,6 +491,18 @@ function beamMesh(nodes, edges, thick, colorMode, hueBase, joints, faceList, tet
           pushLine(f.II[0],f.II[1],cc);pushLine(f.II[1],f.II[2],cc);pushLine(f.II[2],f.II[0],cc);
         }
       }
+      // interior corner triangles: outline each tetra's four closed corners
+      for(let ti=0;ti<tets.length;ti++){
+        const t=tets[ti], fs=faceInfo.slice(ti*4,ti*4+4);
+        for(let a=0;a<4;a++){
+          const vi=t[a], V=nodes[vi], pts=[];
+          for(const f of fs){const k=f.idx.indexOf(vi); if(k>=0&&!f.collapsed) pts.push(f.II[k]);}
+          if(pts.length===3){
+            const cc=edgeColor(V[1]);
+            pushLine(pts[0],pts[1],cc);pushLine(pts[1],pts[2],cc);pushLine(pts[2],pts[0],cc);
+          }
+        }
+      }
     } else {
       const stripSeen={};
       for(let ti=0;ti<tets.length;ti++){
